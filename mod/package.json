@@ -1,0 +1,15 @@
+{
+  "name": "musedash-android-mod",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "frida-compile src/index.ts -o dist/mod.js -c"
+  },
+  "dependencies": {
+    "frida-il2cpp-bridge": "0.14.0"
+  },
+  "devDependencies": {
+    "@types/frida-gum": "^19.0.0",
+    "@types/node": "^22.0.0"
+  }
+}

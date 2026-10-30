@@ -1,0 +1,7 @@
+{
+  "interaction": {
+    "type": "script",
+    "path": "/storage/emulated/0/Android/data/com.prpr.musedash.mod/files/mod.js",
+    "on_change": "reload"
+  }
+}

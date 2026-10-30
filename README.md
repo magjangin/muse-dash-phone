@@ -31,21 +31,17 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 
 ## 📦 준비물
 
-| | 버전 |
-|---|---|
-| Muse Dash Android (정품, 기기에 설치) | 6.8.0 / 632, arm64-v8a |
-| Frida Gadget | 17.24.3 android-arm64 |
-| frida-il2cpp-bridge | 0.14.0 (`npm install`로 받음) |
-| Node.js | 20 이상 |
-| Java, apktool, uber-apk-signer, adb | [docs/BUILD_CLONE.md](docs/BUILD_CLONE.md) |
+- **Windows PC**와 USB 케이블
+- **Java 17 이상(JDK)** — 없으면 [Temurin](https://adoptium.net)을 설치하세요.
+- **Node.js 20 이상** — `mod.js`를 빌드할 때 씁니다(아직 미리 빌드한 릴리스가 없습니다).
+- **폰**: Play 스토어에서 받은 Muse Dash **6.8.0 (632)**. 한 번 실행해서 데이터(약 2 GB)까지 받아 두세요. 저장 공간이 2.5 GB 이상 남아 있어야 합니다.
+- 폰의 **USB 디버깅** 켜기: 설정 → 휴대전화 정보 → 소프트웨어 정보 → 빌드번호 7번 탭 → 개발자 옵션 → USB 디버깅.
+
+adb, apktool, uber-apk-signer, Frida Gadget은 설치 스크립트가 처음 실행될 때 받습니다(버전·해시 고정).
 
 ## 🚀 설치
 
-### 1. 복제 패키지 만들기 (처음 한 번)
-
-기기에서 APK를 꺼내 패키지명을 바꾸고, Frida Gadget을 넣어 다시 서명합니다. 단계별 명령은 **[docs/BUILD_CLONE.md](docs/BUILD_CLONE.md)** 에 있습니다.
-
-### 2. 모드 빌드
+### 1. mod.js 빌드 (처음 한 번)
 
 ```bash
 cd mod
@@ -59,11 +55,34 @@ npm install
 npm run build
 ```
 
-`mod/dist/mod.js` 하나가 나옵니다.
+`mod/dist/mod.js` 하나가 나옵니다. 설치 스크립트가 이 파일을 폰에 넣습니다.
 
-### 3. 기기에 넣기
+### 2. 설치 스크립트 실행
 
-복제본을 한 번 실행해 앱 폴더를 만든 뒤:
+폰을 USB로 연결하고 **`install/install.bat`을 더블클릭**하세요. 폰에 'USB 디버깅 허용' 창이 뜨면 [허용]을 누릅니다.
+
+스크립트가 하는 일:
+
+1. 폰에 설치된 정품 APK를 꺼냅니다(게임 파일은 이 저장소에 없습니다).
+2. 패키지명을 `com.prpr.musedash.mod`로 바꾸고 Frida Gadget을 넣어 다시 서명합니다.
+3. 복제본을 설치하고, OBB(2 GB)를 폰 안에서 복사합니다.
+4. `mod.js`를 복제본 폴더에 넣습니다.
+
+원본 앱과 세이브는 건드리지 않습니다. 앱 목록에 Muse Dash가 하나 더 생기면 그게 복제본입니다. 수동으로 하고 싶으면 [docs/BUILD_CLONE.md](docs/BUILD_CLONE.md)를 보세요.
+
+옵션(PowerShell에서 `install\install.ps1 -옵션`):
+
+| 옵션 | 뜻 |
+|---|---|
+| `-Serial <기기>` | 폰이 여러 대 연결됐을 때 고르기 |
+| `-Adb <경로>` | 특정 adb 쓰기. Nox 같은 에뮬레이터 프로그램이 켜져 있으면 **그 프로그램의 adb**를 주세요(두 adb가 섞이면 기기가 offline이 됩니다) |
+| `-ModJs <경로>` | 다른 위치의 mod.js 넣기 (기본은 `mod/dist/mod.js`) |
+| `-Package <이름>` | 다른 패키지명으로 하나 더 설치 |
+| `-SkipObb` | OBB 복사 건너뛰기 |
+
+### 3. 모드를 고친 뒤
+
+`mod/src`를 고쳤으면 `npm run build`로 다시 빌드한 뒤, 스크립트를 다시 돌릴 필요 없이 mod.js만 push하면 됩니다.
 
 ```bash
 adb push mod/dist/mod.js /sdcard/Android/data/com.prpr.musedash.mod/files/mod.js
@@ -113,6 +132,8 @@ PC 모드와 같은 파일을 그대로 쓸 수 있습니다. 키는 공백·기
 ## 🔧 문제 해결
 
 - 로그: `/sdcard/Android/data/com.prpr.musedash.mod/files/mod.log` (JSON 한 줄씩)
+  - 앱이 직접 만든 파일은 권한이 `0600`이라 adb로 읽을 수 없습니다. 설치 스크립트가 `mod.log`를 미리 만들어 두므로 보통은 읽힙니다. `Permission denied`가 나오면 앱을 끄고 `adb shell rm` 후 `touch`·`chmod 666`으로 다시 만드세요.
+  - 곡 폴더는 PC에서 `adb push`로 넣으세요. 폰 안에서 `cp -r`로 복사한 폴더는 모드가 파일을 못 읽었습니다(`hwa-skip`).
 
 ```bash
 adb shell cat /sdcard/Android/data/com.prpr.musedash.mod/files/mod.log
@@ -143,6 +164,7 @@ mod/                 TypeScript 모드 (npm run build → dist/mod.js)
   src/hwa/           곡 폴더·info.txt
   src/chart/         노트 스펙·MusicData 주입
   src/*.ts           태그·배틀·고스트·HitPoints·진행바·안전장치
+install/             원클릭 설치 스크립트 (install.bat → install.ps1)
 gadget/              Frida Gadget 설정 (script 모드)
 examples/hwa/        곡 폴더 예시
 docs/BUILD_CLONE.md  복제 APK 만들기

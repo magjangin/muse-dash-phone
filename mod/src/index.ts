@@ -1,0 +1,27 @@
+// Muse Dash Android 6.8.0 복제본(com.prpr.musedash.mod) 모드 진입점. Gadget script 모드가 이 번들(mod.js)을 실행한다.
+// 빌드: mod/ 에서 `npm run build` → dist/mod.js → 기기 files/mod.js 로 push (on_change=reload).
+// 공개본에는 유료 콘텐츠(DLC·Muse Plus) 해금 코드가 없다. 숙주 곡은 무료 곡이나 이미 가진 곡을 쓴다.
+import "frida-il2cpp-bridge";
+import { guard, log } from "./log.js";
+import { probe } from "./probe.js";
+import { installCustomChart } from "./customChart.js";
+import { installCustomTag } from "./customTag.js";
+import { installSafety } from "./safety.js";
+import { installBattle } from "./battle.js";
+import { installGhost } from "./ghost.js";
+import { installHitPoints } from "./hitpoints.js";
+import { installProgress } from "./progress.js";
+
+log({ t: "mod-loaded" });
+
+Il2Cpp.perform(() => {
+    log({ t: "il2cpp-ready", base: Il2Cpp.module.base.toString() });
+    guard("safety", installSafety);
+    guard("probe", probe);
+    guard("custom-chart", installCustomChart);
+    guard("custom-tag", installCustomTag);
+    guard("battle", installBattle);
+    guard("ghost", installGhost);
+    guard("hitpoints", installHitPoints);
+    guard("progress", installProgress);
+});

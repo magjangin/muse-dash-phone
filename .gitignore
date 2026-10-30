@@ -1,0 +1,21 @@
+# 빌드 산출물·의존성
+node_modules/
+dist/
+
+# 게임 파일·서명 키는 절대 올리지 않는다
+*.apk
+*.obb
+*.so
+*.keystore
+*.jks
+*.idsig
+decoded/
+
+# 곡 파일 (음원·자켓·차트는 각자 준비)
+*.ogg
+*.wav
+*.mp3
+*.png
+*.jpg
+*.bms
+*.log

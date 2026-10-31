@@ -16,8 +16,11 @@ import { installAutoPlay } from "./autoplay.js";
 import { installAllPerfect } from "./allPerfect.js";
 import { installBga } from "./bga.js";
 import { installFever } from "./fever.js";
+import { restoreCache } from "./cacheRestore.js";
 
 log({ t: "mod-loaded" });
+// 캐시는 Unity가 뜨기 전에만 푼다. mod.js를 push해 다시 읽힐 때(on_change)는 libil2cpp가 이미 올라와 있으니 건너뛴다.
+if (Process.findModuleByName("libil2cpp.so") === null) guard("cache-restore", restoreCache);
 
 Il2Cpp.perform(() => {
     log({ t: "il2cpp-ready", base: Il2Cpp.module.base.toString() });

@@ -15,12 +15,26 @@ function packageName(): string {
     return "com.prpr.musedash.mod";
 }
 
-export const MOD_DIR = `/storage/emulated/0/Android/data/${packageName()}/files`;
+export const PACKAGE = packageName();
+export const MOD_DIR = `/storage/emulated/0/Android/data/${PACKAGE}/files`;
 
-const file = new File(`${MOD_DIR}/mod.log`, "a");
+// XAPK로 갓 깐 첫 실행엔 앱이 getExternalFilesDir를 부르기 전이라 files 폴더가 없어 로그를 못 연다.
+// 그때 예외로 스크립트(해금 훅)가 죽지 않게, 열릴 때까지 줄을 모아 뒀다가 연 뒤에 한꺼번에 쓴다.
+let file: File | null = null;
+const pending: string[] = [];
 
 export function log(message: object): void {
-    file.write(`${Date.now()} ${JSON.stringify(message)}\n`);
+    const line = `${Date.now()} ${JSON.stringify(message)}\n`;
+    if (file === null) {
+        try {
+            file = new File(`${MOD_DIR}/mod.log`, "a");
+        } catch (e) {
+            if (pending.length < 500) pending.push(line);
+            return;
+        }
+        for (const old of pending.splice(0)) file.write(old);
+    }
+    file.write(line);
     file.flush();
 }
 

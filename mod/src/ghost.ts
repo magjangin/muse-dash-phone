@@ -2,10 +2,12 @@
 // 고스트(uid xx=17, type 4)가 판정선 앞에서 투명해지는 건 Spine 비행 애니메이션(in_nor_44)의 컬러 타임라인 알파 때문이다.
 // "in" 재생 직후 그 애니메이션의 ColorTimeline/TwoColorTimeline 알파 키만 1로 덮는다(이동·스케일은 그대로).
 // SkeletonData는 프로세스 내내 공유되므로 원래 알파를 기억해 두고, 옵션이 꺼진 곡(순정 곡 포함)에서는 되돌린다.
-// 켜는 곳: 곡 폴더 info.txt '커스텀 곡 고스트 보이기 = 활성화'. 순정 곡은 끈 상태(원본).
+// 켜는 곳 (PC GhostNoteVisibility와 같은 규칙): 커스텀 곡은 info.txt '커스텀 곡 고스트 보이기'가 있으면 그 값,
+// 없으면 전역 config.txt '고스트노트보이기'. 순정 곡은 전역 값을 따른다 (비서 앱 토글이 여기에 저장된다).
 import { log } from "./log.js";
 import { readIl2CppString } from "./native.js";
-import { battleSong } from "./customChart.js";
+import { battleSerial, battleSong } from "./customChart.js";
+import { currentConfig } from "./config.js";
 
 // SpineActionController.m_MusicData(struct) 0xF0 + MusicData.noteData 0x50 → uid +0x10, type +0x38
 const MD_NOTE_UID = 0xF0 + 0x50 + 0x10;
@@ -17,6 +19,23 @@ const FLOAT_ARRAY_DATA = 0x20;
 
 const originalAlphas = new Map<string, number[]>();   // 스켈레톤|애니메이션 → 덮기 전 알파
 const opaqueState = new Map<string, boolean>();
+let stateSerial = -1;
+
+// PC ResetCache와 같은 역할: 판(배틀)마다 '이미 덮었다' 기록을 비운다. 씬을 다시 불러 SkeletonData가 같은 주소에
+// 새로 올라오면 알파가 원본으로 돌아가 있는데, 기록만 보고 건너뛰어 고스트가 다시 투명해지던 문제를 막는다.
+// 원래 알파(originalAlphas)는 끌 때 되돌리기 위해 남겨 둔다.
+function resetIfNewBattle(): void {
+    const s = battleSerial();
+    if (s === stateSerial) return;
+    stateSerial = s;
+    opaqueState.clear();
+}
+
+function shouldShowGhosts(): boolean {
+    const own = battleSong()?.manifest.showGhostNotes;
+    if (own !== null && own !== undefined) return own;
+    return currentConfig.showGhostNotes;
+}
 
 function isGhost(self: NativePointer): boolean {
     if (self.add(MD_NOTE_TYPE).readU32() === GHOST_TYPE) return true;
@@ -72,7 +91,8 @@ export function installGhost(): void {
             const self: NativePointer = (this as any).self;
             if (!isGhost(self)) return;
             try {
-                apply(new Il2Cpp.Object(self), battleSong()?.manifest.showGhostNotes === true);
+                resetIfNewBattle();
+                apply(new Il2Cpp.Object(self), shouldShowGhosts());
             } catch (e) {
                 log({ t: "ghost-error", error: `${e}` });
             }

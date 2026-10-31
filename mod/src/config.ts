@@ -1,5 +1,6 @@
 // save custom key/config.txt 전역 설정 파일 관리 모듈 (PC InputOverlay.Config.cs 이식).
-// 경로: <앱 files>/save custom key/config.txt
+// 경로: 1순위 /storage/emulated/0/MuseDash/config.txt (공용)
+//       2순위 <앱 files>/save custom key/config.txt
 // 지원 항목: 오토플레이, 강제퍼펙트, 피버충전금지, 시네마, 고스트노트보이기
 import { MOD_DIR, log, guard } from "./log.js";
 import { readText, fileExists, makeDir } from "./native.js";
@@ -7,6 +8,9 @@ import { setGlobalAutoPlay } from "./autoplay.js";
 import { setForcePerfect } from "./allPerfect.js";
 import { setGlobalBlockFever } from "./fever.js";
 import { onFrame } from "./frame.js";
+
+export const PUBLIC_CONFIG_DIR = "/storage/emulated/0/MuseDash";
+export const PUBLIC_CONFIG_PATH = `${PUBLIC_CONFIG_DIR}/config.txt`;
 
 export const CONFIG_DIR = `${MOD_DIR}/save custom key`;
 export const CONFIG_PATH = `${CONFIG_DIR}/config.txt`;
@@ -52,6 +56,19 @@ const DEFAULT_CONFIG_TEXT = `# =================================================
 고스트노트보이기=true
 `;
 
+function getActiveConfigPath(): string {
+    try {
+        if (fileExists(PUBLIC_CONFIG_PATH)) {
+            // 권한 체크: 실제로 읽을 수 있는지 확인
+            readText(PUBLIC_CONFIG_PATH);
+            return PUBLIC_CONFIG_PATH;
+        }
+    } catch (_) {
+        // Scoped Storage로 공용 폴더 접근 불가 시 앱 전용 폴더로 자동 폴백
+    }
+    return CONFIG_PATH;
+}
+
 function ensureConfigFile(): void {
     try {
         makeDir(CONFIG_DIR);
@@ -80,10 +97,11 @@ let lastCheckTime = 0;
 
 export function reloadConfig(): void {
     guard("reload-config", () => {
-        if (!fileExists(CONFIG_PATH)) {
+        const activePath = getActiveConfigPath();
+        if (!fileExists(activePath)) {
             ensureConfigFile();
         }
-        const text = readText(CONFIG_PATH);
+        const text = readText(activePath);
         if (text === lastContent) return;
         lastContent = text;
 
@@ -118,6 +136,7 @@ export function reloadConfig(): void {
 
         log({
             t: "config-loaded",
+            source: activePath,
             autoPlay: currentConfig.autoPlay,
             forcePerfect: currentConfig.forcePerfect,
             blockFever: currentConfig.blockFever,

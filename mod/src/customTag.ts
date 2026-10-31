@@ -18,7 +18,13 @@ function findClass(name: string): Il2Cpp.Class | null {
 const ALBUM_TITLE = "실험 앨범";
 const ALBUM_JSON_NAME = "custom_album_1998_0";   // 가상 앨범(AlbumsInfo.jsonName) 표시용
 const ALBUM_PREFAB = "album_0";
+const PUBLIC_TAG_ICON_PATH = "/storage/emulated/0/MuseDash/hwa_tag_icon.png";
 const TAG_ICON_PATH = `${MOD_DIR}/hwa_tag_icon.png`;
+function getTagIconPath(): string | null {
+    if (fileExists(PUBLIC_TAG_ICON_PATH)) return PUBLIC_TAG_ICON_PATH;
+    if (fileExists(TAG_ICON_PATH)) return TAG_ICON_PATH;
+    return null;
+}
 const TAG_NAMES: [string, string][] = [
     ["Korean", "실험 모드"], ["English", "Experiment Mod"], ["Japanese", "実験モード"],
     ["ChineseSimplified", "实验模式"], ["ChineseTraditional", "實驗模式"]
@@ -183,7 +189,8 @@ function registerTag(): void {
     custom.ref(true);
     custom.field<Il2Cpp.Object>("tag_name").value = languages;
     // LoadImg는 URL로 읽는다(그냥 경로를 주면 http://localhost 로 접속하려다 실패) → file:// 를 붙인다.
-    if (fileExists(TAG_ICON_PATH)) custom.field<Il2Cpp.String>("tag_picture").value = Il2Cpp.string(`file://${TAG_ICON_PATH}`);
+    const iconPath = getTagIconPath();
+    if (iconPath) custom.field<Il2Cpp.String>("tag_picture").value = Il2Cpp.string(`file://${iconPath}`);
     custom.field<Il2Cpp.Object>("music_list").value = stringList(uids);
 
     const tag = cls("Assets.Scripts.Database.DataClass.AlbumTagInfo").new();
@@ -210,7 +217,7 @@ function registerTag(): void {
 
     if (!db.method<boolean>("AllAlbumTagsSortContains").invoke(TAG_INDEX)) db.method("AddCustomAlbumTagsSort").invoke(TAG_INDEX);
     db.method("AddAlbumTagData").invoke(TAG_INDEX, tag);
-    log({ t: "tag-registered", tagIndex: TAG_INDEX, songs: uids, album: !!album, icon: fileExists(TAG_ICON_PATH) });
+    log({ t: "tag-registered", tagIndex: TAG_INDEX, songs: uids, album: !!album, icon: !!getTagIconPath() });
 }
 
 function unityClass(assembly: string, name: string): Il2Cpp.Class {

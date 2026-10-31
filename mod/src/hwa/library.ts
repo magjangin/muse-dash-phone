@@ -5,6 +5,7 @@ import { listDir, readText } from "../native.js";
 import { parseBms } from "../bms/parser.js";
 import type { BmsChart } from "../bms/parser.js";
 import { parseManifest } from "./manifest.js";
+import { pullFromAssistant } from "./assistant.js";
 import type { HwaManifest } from "./manifest.js";
 
 export const PUBLIC_HWA_DIR = "/storage/emulated/0/MuseDash/hwa";
@@ -61,6 +62,12 @@ let songs: HwaSong[] = [];
 
 export function loadLibrary(): HwaSong[] {
     songs = [];
+    // 비서 앱이 받은 곡을 먼저 앱 고유 폴더로 가져온다 (실패해도 기존 곡으로 계속).
+    try {
+        pullFromAssistant(HWA_DIR);
+    } catch (e) {
+        log({ t: "assistant-sync-error", error: `${e}` });
+    }
     const seenFolders = new Set<string>();
     // 앱 고유 폴더(HWA_DIR)는 권한 제한 없이 100% 읽기 가능하므로 우선 탐색
     const searchDirs = [HWA_DIR, PUBLIC_HWA_DIR];

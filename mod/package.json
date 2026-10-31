@@ -6,7 +6,8 @@
     "build": "frida-compile src/index.ts -o dist/mod.js -c"
   },
   "dependencies": {
-    "frida-il2cpp-bridge": "0.14.0"
+    "frida-il2cpp-bridge": "0.14.0",
+    "frida-java-bridge": "^7.0.13"
   },
   "devDependencies": {
     "@types/frida-gum": "^19.0.0",

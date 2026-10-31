@@ -129,6 +129,17 @@ adb push dist/mod.js /sdcard/Android/data/com.prpr.musedash.mod/files/mod.js
    └─ neon/                  ← 곡 폴더 2 ...
 ```
 
+### 뮤즈대시 모드 비서 앱으로 넣기 (Android 11+)
+
+[뮤즈대시 모드 비서](https://github.com/magjangin/muse-dash-app-support-tool) 앱으로 받은 곡은 `/sdcard/MuseDash/hwa/`에 저장됩니다.
+Android 11 이상에서는 게임이 이 폴더의 파일을 직접 읽을 수 없어서, **게임이 시작될 때** 모드가 비서 앱에서 곡을 가져와 위 `hwa/` 폴더로 복사합니다 (`src/hwa/assistant.ts`).
+
+- 새 파일이나 크기가 바뀐 파일만 복사합니다. 가져온 곡 폴더에는 `.from_assistant` 표시 파일이 생깁니다.
+- 비서 앱에서 지운 곡은 `.from_assistant`가 있는 폴더만 지웁니다. adb로 직접 넣은 곡은 건드리지 않습니다.
+- 곡을 받은 뒤에는 게임을 **완전히 껐다 켜야** 반영됩니다.
+- 게임을 강제 종료했거나 기기를 재부팅했다면, 비서 앱을 한 번 열거나 비서 앱의 실행 버튼으로 게임을 켜세요. 그래야 곡을 가져올 권한이 다시 생깁니다.
+- 결과는 `mod.log`의 `assistant-sync` 줄에 남습니다 (`copied` = 복사한 파일 수, `removed` = 지운 곡 수).
+
 ### `hwa info.txt` 주요 키
 PC 모드와 100% 동일한 양식을 지원합니다.
 

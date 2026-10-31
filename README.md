@@ -96,8 +96,11 @@ npm run build
 4. 빌드된 `mod.js`를 기기에 자동 배치
 
 > **📱 PC 없이 폰 단독으로 설치하고 싶다면?**  
-> Termux와 Android 무선 디버깅을 사용한 단독 빌드 및 설치 안내 문서를 확인하세요:  
-> 🔗 [Termux 무인 설치 가이드 (docs/termux_install.md)](docs/termux_install.md)
+> Termux 터미널에서 다음 스크립트를 실행하면 무선 디버깅을 통해 폰 단독으로 추출·패치·설치까지 한 번에 완료됩니다:  
+> ```bash
+> bash install/install-termux.sh
+> ```
+> 상세한 작동 원리와 무선 디버깅 설정법은 [Termux 무인 설치 가이드 (docs/termux_install.md)](docs/termux_install.md)를 참고하세요.
 
 ### 3. 모드 소스 수정 후 빠른 업데이트
 TypeScript 코드를 수정한 뒤에는 APK를 재설치할 필요 없이 `mod.js`만 밀어 넣으면 즉시 갱신됩니다:

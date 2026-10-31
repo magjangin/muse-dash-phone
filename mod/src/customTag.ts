@@ -2,7 +2,7 @@
 // PC 모드 Patches/UI/Custom/Tags/CustomTagRegistry.cs + Support/CustomTagRegistrySupport.cs + CustomTagPatch.cs 이식본.
 // 게임 자체의 커스텀 태그 구조(DBConfigCustomTags.CustomTagInfo → AlbumTagInfo.InitCustomTagInfo → DBMusicTag.AddAlbumTagData)를 그대로 쓴다.
 import { MOD_DIR, guard, log } from "./log.js";
-import { fileExists, pinnedString } from "./native.js";
+import { fileReadable, pinnedString } from "./native.js";
 import { ALBUM_UID, FALLBACK_HOST_UID, TAG_INDEX, TAG_UID, allSongs } from "./hwa/library.js";
 import type { HwaSong } from "./hwa/library.js";
 import { currentCustomSong, setBattleAudioLength } from "./customChart.js";
@@ -20,9 +20,18 @@ const ALBUM_JSON_NAME = "custom_album_1998_0";   // 가상 앨범(AlbumsInfo.jso
 const ALBUM_PREFAB = "album_0";
 const PUBLIC_TAG_ICON_PATH = "/storage/emulated/0/MuseDash/hwa_tag_icon.png";
 const TAG_ICON_PATH = `${MOD_DIR}/hwa_tag_icon.png`;
+// XAPK용 APK는 같은 아이콘을 lib/arm64-v8a/libhwa_tag_icon.so로 싣는다(embed_script_apk.py) → 게임 .so들과 같은 폴더에 풀린다.
+// 폴더는 libil2cpp.so로 찾는다. Gadget은 자기 모듈을 목록에서 숨겨서 findModuleByName("libfrida-gadget.so")가 null이다(실측).
+function bundledTagIconPath(): string | null {
+    const il2cpp = Process.findModuleByName("libil2cpp.so");
+    return il2cpp ? il2cpp.path.replace(/[^/]+$/, "libhwa_tag_icon.so") : null;
+}
+// 있는지만 보면 안 된다: 새로 깐 게임은 adb·비서 앱이 만든 공용 아이콘을 볼 수는 있어도 못 읽는다(2026-11-01 실측,
+// 기존 .mod는 예전에 adb로 READ_MEDIA_IMAGES를 허용해 둬서 읽혔다). 못 읽은 경로를 주면 게임이 기본 ♫ 아이콘으로 바꾼다.
 function getTagIconPath(): string | null {
-    if (fileExists(PUBLIC_TAG_ICON_PATH)) return PUBLIC_TAG_ICON_PATH;
-    if (fileExists(TAG_ICON_PATH)) return TAG_ICON_PATH;
+    for (const path of [PUBLIC_TAG_ICON_PATH, TAG_ICON_PATH, bundledTagIconPath()]) {
+        if (path !== null && fileReadable(path)) return path;
+    }
     return null;
 }
 const TAG_NAMES: [string, string][] = [
@@ -217,7 +226,7 @@ function registerTag(): void {
 
     if (!db.method<boolean>("AllAlbumTagsSortContains").invoke(TAG_INDEX)) db.method("AddCustomAlbumTagsSort").invoke(TAG_INDEX);
     db.method("AddAlbumTagData").invoke(TAG_INDEX, tag);
-    log({ t: "tag-registered", tagIndex: TAG_INDEX, songs: uids, album: !!album, icon: !!getTagIconPath() });
+    log({ t: "tag-registered", tagIndex: TAG_INDEX, songs: uids, album: !!album, icon: iconPath });
 }
 
 function unityClass(assembly: string, name: string): Il2Cpp.Class {
@@ -304,6 +313,15 @@ export function installCustomTag(): void {
 
     // 커버·음악·미리듣기: 가상 키로 요청되면 원본엔 숙주 에셋 이름을 넘기고, 끝나면 곡 폴더 파일로 만든 것으로 바꾼다.
     const audioLoader = findClass("RuntimeAudioClipLoader.Manager");
+    // AudioDataLoadState: Unloaded 0, Loading 1, Loaded 2, Failed 3. 동기로 만든 클립은 Manager가 상태를 안 적어 0으로 나온다.
+    const AUDIO_LOADED = 2;
+    const backgroundClips = new Set<string>();
+    const audioLoadState = (clip: Il2Cpp.Object): number => {
+        if (!backgroundClips.has(clip.handle.toString())) return AUDIO_LOADED;
+        // enum 반환값은 bridge가 숫자가 아니라 ValueType으로 준다 → value__ 를 읽는다(숫자로 비교하면 늘 '안 풀림').
+        const state = audioLoader?.method<Il2Cpp.ValueType>("GetAudioClipLoadState", 1).invoke(clip);
+        return state ? state.field<number>("value__").value : AUDIO_LOADED;
+    };
     Interceptor.attach(Il2Cpp.module.base.add(0x1FDA3D4), {   // ResourcesManager.LoadFromName<T>(string) 공유 본체
         onEnter(args) {
             const p = args[1];
@@ -334,16 +352,26 @@ export function installCustomTag(): void {
                 // 음악과 미리듣기는 같은 OGG → 한 번만 디코드
                 const cacheKey = req.kind === "cover" ? key : `audio:${req.song.virtualUid}`;
                 let made = assetCache.get(cacheKey);
+                // 본곡은 다 풀린 클립만 쓴다. 미리듣기가 백그라운드로 아직 푸는 중이면 동기로 따로 풀어 그걸로 바꾼다.
+                if (made && req.kind === "music") {
+                    const state = audioLoadState(made);
+                    log({ t: "music-from-preview", uid: req.song.virtualUid, state });
+                    if (state !== AUDIO_LOADED) made = undefined;
+                }
                 if (!made) {
                     const started = Date.now();
+                    // 미리듣기는 RuntimeAudioClipLoader 백그라운드 디코드(loadInBackground): 클립은 바로 생기고 데이터는
+                    // Manager.Update가 나중에 채운다. 동기로 풀면 곡 선택 화면이 약 5초 멈췄다(입력도 씹힘).
+                    const background = req.kind === "demo";
                     const obj = req.kind === "cover"
                         ? spriteFromFile(req.song.coverPath!)
-                        : audioLoader?.method<Il2Cpp.Object>("Load", 4).invoke(Il2Cpp.string(req.song.musicPath!), false, false, true) ?? null;
+                        : audioLoader?.method<Il2Cpp.Object>("Load", 4).invoke(Il2Cpp.string(req.song.musicPath!), false, background, background) ?? null;
                     if (!obj || obj.isNull()) { log({ t: "asset-fail", key }); return; }
                     obj.ref(true);
+                    if (background) backgroundClips.add(obj.handle.toString());
                     made = obj;
                     assetCache.set(cacheKey, made);
-                    log({ t: "asset-made", key, kind: req.kind, ms: Date.now() - started });
+                    log({ t: "asset-made", key, kind: req.kind, background, ms: Date.now() - started });
                 }
                 ret.replace(made.handle);
                 if (req.kind === "music") setBattleAudioLength(made.method<number>("get_length").invoke());

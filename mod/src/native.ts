@@ -58,6 +58,11 @@ const opendir = new NativeFunction(libc.getExportByName("opendir"), "pointer", [
 const readdir = new NativeFunction(libc.getExportByName("readdir"), "pointer", ["pointer"]);
 const closedir = new NativeFunction(libc.getExportByName("closedir"), "int", ["pointer"]);
 const access = new NativeFunction(libc.getExportByName("access"), "int", ["pointer", "int"]);
+const mkdirNative = new NativeFunction(libc.getExportByName("mkdir"), "int", ["pointer", "int"]);
+
+export function makeDir(path: string): number {
+    return mkdirNative(Memory.allocUtf8String(path), 0o777) as number;
+}
 
 const DT_DIR = 4;
 

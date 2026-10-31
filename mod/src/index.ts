@@ -4,6 +4,7 @@
 import "frida-il2cpp-bridge";
 import { guard, log } from "./log.js";
 import { probe } from "./probe.js";
+import { installConfig } from "./config.js";
 import { installCustomChart } from "./customChart.js";
 import { installCustomTag } from "./customTag.js";
 import { installSafety } from "./safety.js";
@@ -22,6 +23,7 @@ Il2Cpp.perform(() => {
     log({ t: "il2cpp-ready", base: Il2Cpp.module.base.toString() });
     guard("safety", installSafety);
     guard("probe", probe);
+    guard("config", installConfig);
     guard("custom-chart", installCustomChart);
     guard("custom-tag", installCustomTag);
     guard("battle", installBattle);

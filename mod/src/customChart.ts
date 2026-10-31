@@ -8,6 +8,7 @@ import { DB_STAGE_INFO_MUSIC_LIST, injectChart, readListSample } from "./chart/i
 import { writeDecimal } from "./native.js";
 import { startBga, stopBga } from "./bga.js";
 import { applyAutoPlay, shouldAutoPlay } from "./autoplay.js";
+import { currentConfig } from "./config.js";
 
 const RVA = {
     SetRuntimeMusicData: 0x20D29D4,   // DBStageInfo.SetRuntimeMusicData(List<MusicData>) = this.musicList = data
@@ -88,7 +89,7 @@ export function installCustomChart(): void {
                     return;
                 }
                 applyAutoPlay(shouldAutoPlay());
-                if (song.videoPath && song.manifest.cinema !== false) {
+                if (song.videoPath && song.manifest.cinema !== false && currentConfig.enableCinema !== false) {
                     startBga(song.videoPath);
                 } else {
                     stopBga();

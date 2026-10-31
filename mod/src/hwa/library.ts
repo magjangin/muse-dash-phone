@@ -24,6 +24,7 @@ export interface HwaSong {
     chart: BmsChart;
     musicPath: string | null;
     coverPath: string | null;
+    videoPath: string | null;
 }
 
 /** 편집기·동기화 도구 임시본만 거른다(tempo.bms 같은 정상 채보는 남긴다). PC BmsFileNames.IsTempFile 이식. */
@@ -74,11 +75,13 @@ export function loadLibrary(): HwaSong[] {
             const chart = parseBms(readText(`${folder}/${bmsName}`), `${folder}/${bmsName}`);
             const music = pickFile(files, /^music\.(ogg|wav|mp3)$/i) ?? pickFile(files, /\.ogg$/i);
             const cover = pickFile(files, /^cover\.(png|jpg|jpeg)$/i);
+            const video = pickFile(files, /^(video|bga|bg|movie)\.mp4$/i) ?? pickFile(files, /\.mp4$/i);
             const song: HwaSong = {
                 virtualUid: `${VIRTUAL_PREFIX}${songs.length + 1}`,
                 folder, name: entry.name, manifest, chart,
                 musicPath: music ? `${folder}/${music}` : null,
-                coverPath: cover ? `${folder}/${cover}` : null
+                coverPath: cover ? `${folder}/${cover}` : null,
+                videoPath: video ? `${folder}/${video}` : null
             };
             songs.push(song);
             log({

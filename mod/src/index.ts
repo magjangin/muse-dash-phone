@@ -11,6 +11,10 @@ import { installBattle } from "./battle.js";
 import { installGhost } from "./ghost.js";
 import { installHitPoints } from "./hitpoints.js";
 import { installProgress } from "./progress.js";
+import { installAutoPlay } from "./autoplay.js";
+import { installAllPerfect } from "./allPerfect.js";
+import { installBga } from "./bga.js";
+import { installFever } from "./fever.js";
 
 log({ t: "mod-loaded" });
 
@@ -24,4 +28,8 @@ Il2Cpp.perform(() => {
     guard("ghost", installGhost);
     guard("hitpoints", installHitPoints);
     guard("progress", installProgress);
+    guard("autoplay", installAutoPlay);
+    guard("all-perfect", installAllPerfect);
+    guard("bga", installBga);
+    guard("fever", installFever);
 });

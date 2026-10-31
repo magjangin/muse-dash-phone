@@ -6,6 +6,8 @@ import { loadLibrary, reloadManifest, songForUid } from "./hwa/library.js";
 import type { HwaSong } from "./hwa/library.js";
 import { DB_STAGE_INFO_MUSIC_LIST, injectChart, readListSample } from "./chart/inject.js";
 import { writeDecimal } from "./native.js";
+import { startBga, stopBga } from "./bga.js";
+import { applyAutoPlay, shouldAutoPlay } from "./autoplay.js";
 
 const RVA = {
     SetRuntimeMusicData: 0x20D29D4,   // DBStageInfo.SetRuntimeMusicData(List<MusicData>) = this.musicList = data
@@ -80,7 +82,17 @@ export function installCustomChart(): void {
                 activeSong = song;
                 serial++;
                 if (song) reloadManifest(song);   // info.txt를 판마다 다시 읽어 싱크 값을 재시작 없이 고칠 수 있게
-                if (!song) return;
+                if (!song) {
+                    stopBga();
+                    applyAutoPlay(false);
+                    return;
+                }
+                applyAutoPlay(shouldAutoPlay());
+                if (song.videoPath && song.manifest.cinema !== false) {
+                    startBga(song.videoPath);
+                } else {
+                    stopBga();
+                }
                 const list = ((this as any).self as NativePointer).add(DB_STAGE_INFO_MUSIC_LIST).readPointer();
                 log({ t: "chart-target", uid, song: song.name, before: readListSample(list, 3, musicDataClass.valueTypeSize) });
                 lastChartEnd = injectChart(list, song, musicDataClass);

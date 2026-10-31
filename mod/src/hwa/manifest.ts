@@ -22,6 +22,9 @@ export interface HwaManifest {
     offset?: number | null;
     showGhostNotes?: boolean | null;
     fixDtToRecommended?: boolean | null;
+    autoPlay?: boolean | null;
+    cinema?: boolean | null;
+    blockFever?: boolean | null;
     unknownKeys: string[];
 }
 
@@ -88,6 +91,9 @@ function parseNullableBool(v: string): boolean | null {
 function apply(m: HwaManifest, rawKey: string, value: string): void {
     const k = normalizeKey(rawKey);
     if (has(k, ["고스트노트보이기", "고스트보이기", "노트보이기", "ghostnote"])) { m.showGhostNotes = parseNullableBool(value); return; }
+    if (has(k, ["오토플레이", "오토", "autoplay", "auto"])) { m.autoPlay = parseNullableBool(value); return; }
+    if (has(k, ["시네마", "bga", "video", "cinema", "배경영상"])) { m.cinema = parseNullableBool(value); return; }
+    if (has(k, ["피버충전금지", "피버차단", "피버금지", "blockfever", "nofever"])) { m.blockFever = parseNullableBool(value); return; }
     if (has(k, ["권장표", "권장dt", "dt보정", "recommendeddt", "fixdt"])) { m.fixDtToRecommended = parseNullableBool(value); return; }
     if (has(k, ["가져올앨범", "앨범", "album"])) { m.album = value; return; }
     if (has(k, ["uid"])) { m.uid = value; return; }

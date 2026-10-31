@@ -180,6 +180,7 @@ mod/                 TypeScript 모드 소스 (npm run build → dist/mod.js)
 install/             PC용 원클릭 자동 설치 스크립트
 gadget/              Frida Gadget 설정 (Script 모드)
 docs/                상세 분석 및 문서
+  modder_guide_frida_gadget.md  왜 Frida Gadget이 안드로이드 IL2CPP 모딩의 핵심인가? (모더 가이드)
   ARCHITECTURE.md    내부 후킹 RVA 및 메모리 레이아웃
   BUILD_CLONE.md     수동 복제본 빌드 절차
   termux_install.md  Termux를 활용한 폰 단독 무인 설치 분석

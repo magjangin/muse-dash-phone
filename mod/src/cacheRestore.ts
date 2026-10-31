@@ -56,13 +56,31 @@ function makeDirs(path: string): void {
     }
 }
 
+function fileSize(path: string): number {
+    if (!fileExists(path)) return -1;
+    try {
+        const f = new File(path, "rb");
+        try {
+            f.seek(0, File.SEEK_END);
+            return f.tell();
+        } finally {
+            f.close();
+        }
+    } catch (_) {
+        return -1;
+    }
+}
+
 // GNU/ustar tar(폴더 '5'와 일반 파일 '0'만 씀)를 dest 아래로 푼다.
-function extractTar(pack: string, dest: string): { files: number; bytes: number } {
+// 같은 크기 파일이 이미 있으면 건너뛴다: 캐시가 있는 기기에 업데이트로 patch OBB가 처음 들어오면 표시(MARKER)가 없어
+// 2 GB를 전부 다시 써서 첫 실행이 약 2분 검은 화면이었다(2026-11-01 실측 126초).
+function extractTar(pack: string, dest: string): { files: number; bytes: number; kept: number } {
     const input = new File(pack, "rb");
     // Frida 17.24.3 File.seek(n, SEEK_CUR)는 readBytes 뒤에 stdio 버퍼 위치(4096) 기준으로 움직인다(실측) → tell()로 절대 위치를 준다.
     const skip = (n: number) => { if (n > 0) input.seek(input.tell() + n, File.SEEK_SET); };
     let files = 0;
     let bytes = 0;
+    let kept = 0;
     try {
         for (;;) {
             const header = new Uint8Array(input.readBytes(512));
@@ -75,6 +93,9 @@ function extractTar(pack: string, dest: string): { files: number; bytes: number 
             const path = `${dest}/${name.replace(/\/+$/, "")}`;
             if (type === 0x35) {
                 makeDirs(path);
+            } else if ((type === 0x30 || type === 0) && fileSize(path) === size) {
+                skip(size);
+                kept++;
             } else if (type === 0x30 || type === 0) {
                 makeDirs(path.substring(0, path.lastIndexOf("/")));
                 const out = new File(path, "wb");
@@ -96,7 +117,7 @@ function extractTar(pack: string, dest: string): { files: number; bytes: number 
     } finally {
         input.close();
     }
-    return { files, bytes };
+    return { files, bytes, kept };
 }
 
 function restorePack(): void {

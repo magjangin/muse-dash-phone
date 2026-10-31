@@ -17,6 +17,7 @@ import { installAllPerfect } from "./allPerfect.js";
 import { installBga } from "./bga.js";
 import { installFever } from "./fever.js";
 import { restoreCache } from "./cacheRestore.js";
+import { installRecords } from "./records.js";
 
 log({ t: "mod-loaded" });
 // 캐시는 Unity가 뜨기 전에만 푼다. mod.js를 push해 다시 읽힐 때(on_change)는 libil2cpp가 이미 올라와 있으니 건너뛴다.
@@ -37,4 +38,5 @@ Il2Cpp.perform(() => {
     guard("all-perfect", installAllPerfect);
     guard("bga", installBga);
     guard("fever", installFever);
+    guard("records", installRecords);
 });

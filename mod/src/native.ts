@@ -91,6 +91,20 @@ export function fileExists(path: string): boolean {
     return (access(Memory.allocUtf8String(path), 0) as number) === 0;
 }
 
+/** 있는지가 아니라 이 앱이 실제로 읽을 수 있는지. 공용 저장소의 남이 만든 이미지는 보이기만 하고 열면 실패한다. */
+export function fileReadable(path: string): boolean {
+    try {
+        const f = new File(path, "rb");
+        try {
+            return f.readBytes(8).byteLength > 0;
+        } finally {
+            f.close();
+        }
+    } catch (_) {
+        return false;
+    }
+}
+
 export function readText(path: string): string {
     return File.readAllText(path);
 }

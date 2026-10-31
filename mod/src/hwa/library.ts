@@ -1,4 +1,4 @@
-// 기기의 곡 폴더 목록: <앱 files>/hwa/<곡>/ 에서 info txt, BMS, music.ogg, cover.png 를 찾는다.
+// 기기의 곡 폴더 목록: <앱 files>/hwa/<곡>/ 및 /storage/emulated/0/MuseDash/hwa/<곡>/ 에서 info txt, BMS, music.ogg, cover.png 를 찾는다.
 // PC 모드 HwaResourceManager(.Bms) + HwaManifestLoader의 파일 선택 규칙 이식본.
 import { MOD_DIR, log } from "../log.js";
 import { listDir, readText } from "../native.js";
@@ -7,6 +7,7 @@ import type { BmsChart } from "../bms/parser.js";
 import { parseManifest } from "./manifest.js";
 import type { HwaManifest } from "./manifest.js";
 
+export const PUBLIC_HWA_DIR = "/storage/emulated/0/MuseDash/hwa";
 export const HWA_DIR = `${MOD_DIR}/hwa`;
 
 // 커스텀 태그·앨범·가상 곡 식별자 (PC 모드 Core/CustomContentIds.cs). 앨범이 1999-0이라 곡은 1999-1부터.
@@ -60,37 +61,45 @@ let songs: HwaSong[] = [];
 
 export function loadLibrary(): HwaSong[] {
     songs = [];
-    for (const entry of listDir(HWA_DIR)) {
-        if (!entry.isDir) continue;
-        const folder = `${HWA_DIR}/${entry.name}`;
-        try {
-            const files = listDir(folder).filter(e => !e.isDir).map(e => e.name);
-            const manifestName = pickManifest(files);
-            const bmsName = pickBms(files);
-            if (!manifestName || !bmsName) {
-                log({ t: "hwa-skip", folder: entry.name, manifest: manifestName, bms: bmsName });
-                continue;
+    const seenFolders = new Set<string>();
+    // 앱 고유 폴더(HWA_DIR)는 권한 제한 없이 100% 읽기 가능하므로 우선 탐색
+    const searchDirs = [HWA_DIR, PUBLIC_HWA_DIR];
+
+    for (const baseDir of searchDirs) {
+        for (const entry of listDir(baseDir)) {
+            if (!entry.isDir) continue;
+            if (seenFolders.has(entry.name)) continue;
+            const folder = `${baseDir}/${entry.name}`;
+            try {
+                const files = listDir(folder).filter(e => !e.isDir).map(e => e.name);
+                const manifestName = pickManifest(files);
+                const bmsName = pickBms(files);
+                if (!manifestName || !bmsName) {
+                    log({ t: "hwa-skip", folder: entry.name, manifest: manifestName, bms: bmsName, dir: baseDir });
+                    continue;
+                }
+                const manifest = parseManifest(readText(`${folder}/${manifestName}`), `${folder}/${manifestName}`);
+                const chart = parseBms(readText(`${folder}/${bmsName}`), `${folder}/${bmsName}`);
+                const music = pickFile(files, /^music\.(ogg|wav|mp3)$/i) ?? pickFile(files, /\.ogg$/i);
+                const cover = pickFile(files, /^cover\.(png|jpg|jpeg)$/i);
+                const video = pickFile(files, /^(video|bga|bg|movie)\.mp4$/i) ?? pickFile(files, /\.mp4$/i);
+                const song: HwaSong = {
+                    virtualUid: `${VIRTUAL_PREFIX}${songs.length + 1}`,
+                    folder, name: entry.name, manifest, chart,
+                    musicPath: music ? `${folder}/${music}` : null,
+                    coverPath: cover ? `${folder}/${cover}` : null,
+                    videoPath: video ? `${folder}/${video}` : null
+                };
+                songs.push(song);
+                seenFolders.add(entry.name);
+                log({
+                    t: "hwa-song", folder: entry.name, virtualUid: song.virtualUid, hostUid: manifest.uid, title: manifest.customTitle ?? manifest.title,
+                    bms: bmsName, notes: chart.notes.length, bpm: chart.defaultBpm, music, cover,
+                    unknownKeys: manifest.unknownKeys, warnings: chart.warnings, dir: baseDir
+                });
+            } catch (e) {
+                log({ t: "hwa-error", folder: entry.name, error: `${e}`, dir: baseDir });
             }
-            const manifest = parseManifest(readText(`${folder}/${manifestName}`), `${folder}/${manifestName}`);
-            const chart = parseBms(readText(`${folder}/${bmsName}`), `${folder}/${bmsName}`);
-            const music = pickFile(files, /^music\.(ogg|wav|mp3)$/i) ?? pickFile(files, /\.ogg$/i);
-            const cover = pickFile(files, /^cover\.(png|jpg|jpeg)$/i);
-            const video = pickFile(files, /^(video|bga|bg|movie)\.mp4$/i) ?? pickFile(files, /\.mp4$/i);
-            const song: HwaSong = {
-                virtualUid: `${VIRTUAL_PREFIX}${songs.length + 1}`,
-                folder, name: entry.name, manifest, chart,
-                musicPath: music ? `${folder}/${music}` : null,
-                coverPath: cover ? `${folder}/${cover}` : null,
-                videoPath: video ? `${folder}/${video}` : null
-            };
-            songs.push(song);
-            log({
-                t: "hwa-song", folder: entry.name, virtualUid: song.virtualUid, hostUid: manifest.uid, title: manifest.customTitle ?? manifest.title,
-                bms: bmsName, notes: chart.notes.length, bpm: chart.defaultBpm, music, cover,
-                unknownKeys: manifest.unknownKeys, warnings: chart.warnings
-            });
-        } catch (e) {
-            log({ t: "hwa-error", folder: entry.name, error: `${e}` });
         }
     }
     log({ t: "hwa-library", count: songs.length });

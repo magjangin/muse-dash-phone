@@ -2,7 +2,8 @@
 // PC 모드 Patches/UI/Custom/Tags/CustomTagRegistry.cs + Support/CustomTagRegistrySupport.cs + CustomTagPatch.cs 이식본.
 // 게임 자체의 커스텀 태그 구조(DBConfigCustomTags.CustomTagInfo → AlbumTagInfo.InitCustomTagInfo → DBMusicTag.AddAlbumTagData)를 그대로 쓴다.
 import { MOD_DIR, guard, log } from "./log.js";
-import { fileReadable, pinnedString } from "./native.js";
+import { fileReadable, pinnedString, readIl2CppString } from "./native.js";
+import { hasMapForLevel } from "./hwa/chartFiles.js";
 import { ALBUM_UID, FALLBACK_HOST_UID, TAG_INDEX, TAG_UID, allSongs } from "./hwa/library.js";
 import type { HwaSong } from "./hwa/library.js";
 import { currentCustomSong, setBattleAudioLength } from "./customChart.js";
@@ -101,6 +102,12 @@ function makeVirtualSong(db: Il2Cpp.Object, song: HwaSong): Il2Cpp.Object | null
     const clone = host.method<Il2Cpp.Object>("MemberwiseClone").invoke();
     clone.ref(true);
 
+    // 아래에서 난이도 칸을 info.txt 값으로 덮기 전에, 숙주에 실제로 있는 차트 에셋을 기억한다.
+    song.hostMaps = MI.difficulty.flatMap((offset, i) => {
+        const level = readIl2CppString(host!.handle.add(offset).readPointer());
+        return hasMapForLevel(level) ? [i + 1] : [];
+    });
+
     const m = song.manifest;
     const index = VIRTUAL_LIST_INDEX_BASE + localByListIndex.size + 1;
     const hostAsset = (field: string) => host!.field<Il2Cpp.String>(field).value?.content ?? null;
@@ -145,7 +152,7 @@ function makeVirtualSong(db: Il2Cpp.Object, song: HwaSong): Il2Cpp.Object | null
     all.method("set_Item").invoke(Il2Cpp.string(song.virtualUid), clone);
     const check = db.method<Il2Cpp.Object>("GetMusicInfoFromAll").invoke(Il2Cpp.string(song.virtualUid));
     const ok = !!check && !check.isNull() && check.handle.equals(clone.handle);
-    log({ t: "tag-virtual-song", uid: song.virtualUid, host: hostUid, title, diffs, listIndex: index, assets: swaps.filter(([k]) => assetRequests.has(assetKey(k, song))).map(([k]) => k), ok });
+    log({ t: "tag-virtual-song", uid: song.virtualUid, host: hostUid, hostMaps: song.hostMaps, title, diffs, listIndex: index, assets: swaps.filter(([k]) => assetRequests.has(assetKey(k, song))).map(([k]) => k), ok });
     return ok ? clone : null;
 }
 

@@ -3,6 +3,8 @@
 // 이 빌드의 MusicData는 0x160바이트 struct라 List<MusicData>._items(MusicData[])에 값으로 들어 있다 → 새 배열을 만들어 _items/_size를 바꾼다.
 import { log } from "../log.js";
 import { pinnedString, readDecimal, readIl2CppString, writeDecimal } from "../native.js";
+import { battleDifficulty } from "../hwa/difficulty.js";
+import { chartForDifficulty } from "../hwa/library.js";
 import type { HwaSong } from "../hwa/library.js";
 import { NoteTypes, UidCode, buildSpecsFromBms, effectiveDt, resolvePrefabName, roundChart, roundTiming } from "./spec.js";
 import type { NoteSpec } from "./spec.js";
@@ -264,7 +266,9 @@ export function injectChart(list: NativePointer, song: HwaSong, musicDataClass: 
         effect: readIl2CppString(tplBytes.add(MD.note + NC.effect).readPointer())
     };
 
-    const build = buildSpecsFromBms(song.chart, song.manifest.scene, song.manifest.fixDtToRecommended === true);
+    const difficulty = battleDifficulty();
+    const chart = chartForDifficulty(song, difficulty);
+    const build = buildSpecsFromBms(chart, song.manifest.scene, song.manifest.fixDtToRecommended === true);
     if (build.specs.length === 0) {
         log({ t: "chart-skip", reason: "변환된 노트 없음", song: song.name });
         return 0;
@@ -297,7 +301,7 @@ export function injectChart(list: NativePointer, song: HwaSong, musicDataClass: 
     const counts: Record<number, number> = {};
     for (const n of notes.slice(1)) counts[n.type] = (counts[n.type] ?? 0) + 1;
     log({
-        t: "chart-injected", song: song.name, original: size, notes: notes.length, specs: build.specs.length,
+        t: "chart-injected", song: song.name, difficulty, bms: chart.sourcePath, original: size, notes: notes.length, specs: build.specs.length,
         holdSandbagPairs: build.pairs, doublePairs: pairs, accuracyCounts: lastCounts, dtChanged: build.dtChanged, byType: counts,
         warnings: build.warnings.slice(0, 10), elemSize,
         first: notes.slice(1, 4).map(n => ({ uid: n.uid, type: n.type, tick: n.tick, dt: n.dt, showTick: n.showTick, prefab: n.prefab }))

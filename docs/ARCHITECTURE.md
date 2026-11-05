@@ -31,7 +31,9 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `bms/parser.ts` | `Bms/BmsParser.cs` + `.Lexer.cs` + `BmsModels.cs` | BMS → 노트·BPM·시간 |
 | `bms/wav.ts` | `Bms/BmsWavParser.cs` | #WAV 파일명 → uid·dt·노트 종류·보스 표식 |
 | `hwa/manifest.ts` | `Patches/Hwa/HwaManifestLoader.cs` | info.txt 파서(키 포함 규칙·판정 순서 동일) + `android delay` |
-| `hwa/library.ts` | `HwaResourceManager(.Bms).cs`, `Core/CustomContentIds.cs` | 곡 폴더 탐색, 가상 uid 1999-N |
+| `hwa/library.ts` | `HwaResourceManager(.Bms).cs`, `Core/CustomContentIds.cs` | 곡 폴더 탐색, 가상 uid 1999-N, 난이도별 채보 읽기 |
+| `hwa/chartFiles.ts` | `Bms/BmsFileNames.cs`, `Bms/BmsHostMaps.cs` | 채보 파일과 숙주 차트 에셋을 고르는 순수 규칙 |
+| `hwa/difficulty.ts` | `Core/CustomRecordStore.cs` | 배틀 난이도(`m_MapDifficulty`)와 메뉴 탭(`selectedDiffTglIndex`) 읽기 |
 | `chart/spec.ts` | `DBStageInfoExperimentChart.*.cs`, `BmsNoteMatcher.cs`, `BmsDtTable.cs` | 노트 스펙·프리팹·dt·보스 자동 교체 |
 | `chart/inject.ts` | `DBStageInfoExperimentChart.cs` + `.Sorting.cs` | MusicData 배열 생성·동시치기·showTick 정렬 |
 | `customChart.ts` | `DBStageInfoPatch.cs` | SetRuntimeMusicData 훅, delay |

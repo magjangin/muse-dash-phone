@@ -16,6 +16,8 @@ export interface HwaManifest {
     difficulty3?: number | null;
     difficulty4?: number | null;
     difficulty5?: number | null;
+    /** 난이도별 채보 파일 이름. 칸 번호가 난이도 번호(1~5)이고 0번 칸은 안 쓴다. '난이도1 bms: easy.bms' 줄. 빈 난이도는 기본 채보를 쓴다. */
+    difficultyBmsFiles: (string | null)[];
     delay?: number | null;
     /** Android 전용 음악 delay. PC 'delay'는 PC 스트리밍 재생 경로에 맞춘 보정값이라 Android에선 기본으로 안 쓴다(아래 apply 참고). */
     androidDelay?: number | null;
@@ -28,8 +30,10 @@ export interface HwaManifest {
     unknownKeys: string[];
 }
 
+const MAX_DIFFICULTY = 5;
+
 export function parseManifest(text: string, sourcePath: string): HwaManifest {
-    const m: HwaManifest = { sourcePath, unknownKeys: [] };
+    const m: HwaManifest = { sourcePath, difficultyBmsFiles: new Array(MAX_DIFFICULTY + 1).fill(null), unknownKeys: [] };
     for (const raw of text.split(/\r?\n/)) {
         const kv = parseLine(raw);
         if (kv) apply(m, kv[0], kv[1]);
@@ -90,6 +94,13 @@ function parseNullableBool(v: string): boolean | null {
 
 function apply(m: HwaManifest, rawKey: string, value: string): void {
     const k = normalizeKey(rawKey);
+    // '난이도1 bms'는 '난이도1'을 포함하므로 레벨 숫자 줄보다 먼저 본다.
+    for (let d = 1; d <= MAX_DIFFICULTY; d++) {
+        if (has(k, [`난이도${d}bms`, `난이도${d}채보`, `difficulty${d}bms`, `difficulty${d}chart`])) {
+            m.difficultyBmsFiles[d] = value.trim().toLowerCase() === "null" ? null : value.trim();
+            return;
+        }
+    }
     if (has(k, ["고스트노트보이기", "고스트보이기", "노트보이기", "ghostnote"])) { m.showGhostNotes = parseNullableBool(value); return; }
     if (has(k, ["오토플레이", "오토", "autoplay", "auto"])) { m.autoPlay = parseNullableBool(value); return; }
     if (has(k, ["시네마", "bga", "video", "cinema", "배경영상"])) { m.cinema = parseNullableBool(value); return; }

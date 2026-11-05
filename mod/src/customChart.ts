@@ -1,7 +1,9 @@
 // 1단계 커스텀 차트: 곡 폴더 info.txt의 '가져올 uid'(숙주 곡)를 플레이하면 그 곡의 차트·음악·delay를 곡 폴더 것으로 바꾼다.
 // 커스텀 태그·가상 곡(1999-N)은 다음 단계. 근거: docs/custom_chart.md 2~6절.
 import { guard, log } from "./log.js";
-import { readIl2CppString } from "./native.js";
+import { pinnedString, readIl2CppString } from "./native.js";
+import { pickHostMap } from "./hwa/chartFiles.js";
+import { battleDifficulty } from "./hwa/difficulty.js";
 import { loadLibrary, reloadManifest, songForUid } from "./hwa/library.js";
 import type { HwaSong } from "./hwa/library.js";
 import { DB_STAGE_INFO_MUSIC_LIST, injectChart, readListSample } from "./chart/inject.js";
@@ -73,6 +75,29 @@ export function installCustomChart(): void {
     const base = Il2Cpp.module.base;
     const musicDataClass = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("GameLogic.MusicData");
     log({ t: "custom-chart-classes", musicDataSize: musicDataClass.valueTypeSize });
+
+    // 숙주 곡에 없는 난이도를 고르면 게임이 없는 차트 에셋(<곡>_map<N>)을 불러오다 NRE로 멈춘다(보라색 화면, 2026-11-05 실측: 0-4의 Master).
+    // 숙주 차트는 어차피 틀로만 쓰므로 있는 난이도의 에셋을 대신 불러오게 한다. 난이도 번호 자체(m_MapDifficulty)는 그대로 둔다.
+    const STAGE_MAP_NAME = 0x50;   // DBBattleStage.m_StageMapName (dump.cs)
+    const stageBattle = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("FormulaBase.StageBattleComponent");
+    Interceptor.attach(stageBattle.method("GetMusicDataFromStageInfo").virtualAddress, {
+        onEnter() {
+            const song = currentCustomSong();
+            if (!song) return;
+            guard("host-map", () => {
+                const difficulty = battleDifficulty();
+                const map = pickHostMap(song.hostMaps, difficulty);
+                if (map === difficulty) return;
+                const gdb = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.Database.GlobalDataBase");
+                const slot = gdb.field<Il2Cpp.Object>("s_DbBattleStage").value.handle.add(STAGE_MAP_NAME);
+                const from = readIl2CppString(slot.readPointer());
+                if (!from) return;
+                const to = from.replace(/\d+$/, String(map));
+                slot.writePointer(pinnedString(to));
+                log({ t: "host-map-redirect", song: song.name, difficulty, hostMaps: song.hostMaps, from, to });
+            });
+        }
+    });
 
     Interceptor.attach(base.add(RVA.SetRuntimeMusicData), {
         onEnter(args) { (this as any).self = args[0]; },

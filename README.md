@@ -123,7 +123,7 @@ adb push dist/mod.js /sdcard/Android/data/com.prpr.musedash.mod/files/mod.js
 └─ hwa/
    ├─ babyshark/             ← 곡 폴더 1 (폴더명 영문 권장)
    │  ├─ hwa info.txt        ← 곡 메타데이터
-   │  ├─ chart.bms           ← BMS 채보
+   │  ├─ chart.bms           ← BMS 채보 (난이도별 파일을 더 넣을 수 있음)
    │  ├─ music.ogg           ← 배경음악
    │  ├─ cover.png           ← 자켓 이미지
    │  └─ bg.mp4              ← BGA 배경 동영상 (선택)
@@ -152,11 +152,30 @@ PC 모드와 100% 동일한 양식을 지원합니다.
 | `레벨 디자이너` | 채보 제작자 이름 |
 | `씬 번호` | 배경 씬 번호 (예: `1` ~ `12`) |
 | `난이도 1` ~ `난이도 5` | 각 난이도별 레벨 숫자 (없는 난이도는 `null`) |
+| `난이도 1 bms` ~ `난이도 5 bms` | 그 난이도에서 플레이할 채보 파일 (적지 않으면 기본 채보) |
 | `offset` | 채보 오프셋 (초 단위) |
 | `android delay` | Android 환경 전용 음악 지연 보정 (초 단위, 기본 `0`) |
 | `오토플레이` | `활성화` 시 해당 곡 단독 오토플레이 |
 | `시네마` | `활성화` 시 BGA 배경 동영상 재생 |
 | `커스텀 곡 고스트 보이기` | `활성화` 시 고스트 노트 강제 렌더링 |
+
+### 난이도별 채보
+
+곡 폴더에 BMS를 난이도별로 넣고 `hwa info.txt`에 파일 이름을 적으면 됩니다.
+
+```text
+난이도 1 : 3
+난이도 2 : 7
+난이도 3 : 11
+난이도 1 bms : easy.bms
+난이도 2 bms : hard.bms
+```
+
+- 적지 않은 난이도는 기본 채보를 씁니다. 난이도에 지정되지 않은 파일 중 `chart.bms` / `main.bms` / `test.bms`를 먼저, 없으면 이름순 첫 파일을 고릅니다. 위 예시에서는 곡 폴더의 다른 BMS가 Master에 쓰입니다.
+- `난이도 N bms` 줄이 없는 곡은 예전처럼 파일 하나를 모든 난이도가 함께 씁니다.
+- 곡 폴더 안의 `.bms`만 받습니다. 파일이 없거나 값이 잘못되면 `mod.log`에 이유를 남기고 기본 채보를 씁니다.
+- 숙주 곡에 없는 난이도도 됩니다(예: Master가 없는 `0-4`).
+- 기록은 난이도마다 따로 저장되어, 한 난이도의 채보를 고쳐도 다른 난이도 기록은 그대로입니다.
 
 BMS 채보 작성 및 `#WAV` 네이밍 규칙은 PC 가이드를 참고하세요:  
 [CUSTOM_CHART_GUIDE](https://github.com/magjangin/muse-dash-test/blob/main/docs/guides/CUSTOM_CHART_GUIDE.md) · [BMS_PARSING](https://github.com/magjangin/muse-dash-test/blob/main/docs/guides/BMS_PARSING.md)

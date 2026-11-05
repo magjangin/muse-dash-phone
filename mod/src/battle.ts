@@ -9,6 +9,8 @@ import { pinnedString, readDecimal, readIl2CppString, writeDecimal } from "./nat
 import { battleDuration, battleSong, currentCustomSong } from "./customChart.js";
 import { bmsSwapTargets, firstBmsBoss } from "./chart/spec.js";
 import { lastCounts } from "./chart/inject.js";
+import { battleDifficulty } from "./hwa/difficulty.js";
+import { chartForDifficulty } from "./hwa/library.js";
 import { onFrame } from "./frame.js";
 
 // 보스 정보가 BMS에 없을 때 PC 모드가 쓰던 기본 보스 (BossRewriteRules)
@@ -61,9 +63,10 @@ function installBoss(): void {
             guard("boss-init", () => {
                 const boss = new Il2Cpp.Object(args[0]);
                 const from = { name: readIl2CppString(args[1]), scene: args[2].toInt32() };
-                const first = firstBmsBoss(song.chart);
+                const chart = chartForDifficulty(song, battleDifficulty());
+                const first = firstBmsBoss(chart);
                 if (first) {
-                    for (const t of bmsSwapTargets(song.chart)) {
+                    for (const t of bmsSwapTargets(chart)) {
                         if (hasBossScene(boss, t.scene)) continue;   // 이번 배틀 보스 표에 이미 있으면 건너뜀
                         dynamicSwap = true;
                         try {

@@ -6,8 +6,10 @@ import { MOD_DIR, guard, log } from "./log.js";
 import { fileExists, makeDir } from "./native.js";
 import { battleSerial, battleSong } from "./customChart.js";
 import { lastCounts } from "./chart/inject.js";
-import { songForUid } from "./hwa/library.js";
+import { battleDifficulty, selectedDifficulty } from "./hwa/difficulty.js";
+import { chartForDifficulty, songForUid } from "./hwa/library.js";
 import type { HwaSong } from "./hwa/library.js";
+import type { BmsChart } from "./bms/parser.js";
 import { shouldAutoPlay } from "./autoplay.js";
 import { customAccuracy } from "./battle.js";
 
@@ -56,11 +58,6 @@ function battleStage(): Il2Cpp.Object | null {
     return stage && !stage.isNull() ? stage : null;
 }
 
-/** 저장(승리)과 표시(준비 화면)가 같은 출처를 쓰도록 하나로 (PC ResolveCurrentDifficulty). 못 구하면 1. */
-function currentDifficulty(): number {
-    return battleStage()?.method<number>("get_selectedDifficulty").invoke() ?? 1;
-}
-
 /** 준비 화면에서 고른 곡 uid. DataHelper.selectedMusicUid → 없으면 s_DbBattleStage.m_MusicUid. */
 function selectedUid(): string | null {
     const fromHelper = asm().class("Assets.Scripts.Database.DataHelper").method<Il2Cpp.String>("get_selectedMusicUid").invoke();
@@ -70,17 +67,18 @@ function selectedUid(): string | null {
 }
 
 // 채보 지문: 노트 위치·종류를 FNV-1a로. PC ChartFingerprint와 값은 다르다(기기 기록은 기기에서만 쓴다).
-const fingerprints = new Map<HwaSong, string>();
-function fingerprint(song: HwaSong): string {
-    let fp = fingerprints.get(song);
+// 난이도마다 채보가 다를 수 있으므로 곡이 아니라 채보별로 계산한다.
+const fingerprints = new Map<BmsChart, string>();
+function fingerprint(chart: BmsChart): string {
+    let fp = fingerprints.get(chart);
     if (fp === undefined) {
         let h = 0x811c9dc5;
-        for (const n of song.chart.notes) {
+        for (const n of chart.notes) {
             const s = `${n.tick}:${n.channel}:${n.rawValue};`;
             for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
         }
-        fp = `android-${song.chart.notes.length}-${h.toString(16).padStart(8, "0")}`;
-        fingerprints.set(song, fp);
+        fp = `android-${chart.notes.length}-${h.toString(16).padStart(8, "0")}`;
+        fingerprints.set(chart, fp);
     }
     return fp;
 }
@@ -97,7 +95,7 @@ function loadRecord(song: HwaSong, difficulty: number): PlayRecord | null {
     const path = recordPath(song, difficulty);
     if (!fileExists(path)) return null;
     const record = JSON.parse(File.readAllText(path)) as PlayRecord;
-    if (record.chartFingerprint !== fingerprint(song)) return null;
+    if (record.chartFingerprint !== fingerprint(chartForDifficulty(song, difficulty))) return null;
     if (!(record.playCount > 0)) record.playCount = 1;
     return record;
 }
@@ -134,7 +132,7 @@ let saved: { serial: number; previousBest: number | null; best: number | null } 
 function saveVictory(): void {
     const song = battleSong();
     if (!song || saved.serial === battleSerial()) return;
-    const difficulty = currentDifficulty();
+    const difficulty = battleDifficulty();
     const previous = loadRecord(song, difficulty);
     saved = { serial: battleSerial(), previousBest: previous?.score ?? null, best: previous?.score ?? null };
     // 게임도 자동 연주(수면 린)는 기록하지 않는다.
@@ -162,7 +160,7 @@ function saveVictory(): void {
         isAllPerfect: isFullCombo && great === 0 && miss === 0,
         playCount: 1,
         savedAtUtc: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-        chartFingerprint: fingerprint(song),
+        chartFingerprint: fingerprint(chartForDifficulty(song, difficulty)),
         songFolder: song.name
     };
     const merged = saveRecord(song, difficulty, next);
@@ -202,7 +200,7 @@ function showRecord(panel: NativePointer): void {
     const song = songForUid(uid);
     if (!loggedPanel) { loggedPanel = true; log({ t: "record-panel", uid, custom: song !== null }); }
     if (!song) return;
-    const difficulty = currentDifficulty();
+    const difficulty = selectedDifficulty();
     const record = loadRecord(song, difficulty);
     const fc = panel.add(PR.imgIconFc).readPointer();
     if (!record) {

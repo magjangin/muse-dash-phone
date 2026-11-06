@@ -101,14 +101,42 @@ Il2Cpp.perform(() => {
 
 ---
 
-## 6. 요약 및 결론
+## 6. Scoped Storage(Android 11~15) 한계 극복: 네이티브 스크립트 임베딩
 
-> **"안드로이드 IL2CPP 모딩에서 MelonLoader가 막혔다면, 정답은 Frida Gadget 복제 패키지(`com.prpr.musedash.mod`) + `script` 핫리로드 모드입니다."**
+Android 11+ 기기에서는 모바일 XAPK 설치기(SAI 등)가 `Android/data`에 파일을 직접 쓸 수 없습니다. 이를 극복하기 위해 **APK 내부 라이브러리 임베딩 기법**을 적용합니다:
+* `mod.js`를 APK의 `lib/arm64-v8a/libfrida-gadget.script.so`로 삽입.
+* `libfrida-gadget.config.so`의 경로를 상대 경로인 `"libfrida-gadget.script.so"`로 설정 (`on_change: "ignore"`).
+* 태그 아이콘 또한 `lib/arm64-v8a/libhwa_tag_icon.so`로 동봉하여 배포.
+* 결과: 별도의 외부 파일 배치 없이도 XAPK 설치만으로 100% 독립 실행 가능.
+
+---
+
+## 7. DLC 에셋 캐시의 영구 보존 (The Abandonware Engine)
+
+Unity IL2CPP 게임이 공식 CDN에서 에셋을 동적 다운로드하는 구조일 경우, 서비스 종료 시 모든 DLC 에셋이 유실됩니다.
+* **해법**: 기기에서 내려받은 `files/UnityCache` 및 `files/com.unity.addressables`를 `patch.632...obb` tar 아카이브로 묶어 패키징.
+* **무인 복원 (`cacheRestore.ts`)**: 스크립트 로드 시점(`onCreate`)에 JS 저수준 tar 스트림 파서가 자동으로 `files/` 경로에 에셋을 복원.
+* **만료 방지**: Unity Cache의 150일 미사용 자동 삭제를 방지하기 위해 매 실행 시 `__info` 타임스탬프를 자동 갱신.
+
+---
+
+## 8. 프로세스 간 곡 동기화 브리지 (Assistant App IPC)
+
+모바일 환경에서 PC 없이 새 커스텀 곡을 추가할 수 있도록 보조 앱(뮤즈대시 모드 비서)과의 ContentProvider 브리지를 구축합니다:
+* 비서 앱의 `SongProvider`를 통해 다운로드된 BMS/음악/자켓 파일을 게임 실행 시 Java IPC를 통해 `files/hwa/`로 안전하게 고속 복사 동기화.
+* Scoped Storage 보안 정책을 위반하지 않으면서도 완전한 모바일 단독 커스텀 곡 주입 생태계 확립.
+
+---
+
+## 9. 요약 및 결론
+
+> **"안드로이드 IL2CPP 모딩에서 MelonLoader가 막혔다면, 정답은 Frida Gadget 복제 패키지(`com.prpr.musedash.mod`) + `script` 핫리로드 모드 + `frida-il2cpp-bridge`입니다."**
 
 이 아키텍처는 비루팅 순정 기기에서:
 1. 정품 세이브를 100% 보존하면서,
 2. 단독 실행 가능한 커스텀 차트 엔진,
 3. 실시간 핫리로드 개발 환경,
-4. C# Harmony 수준의 고수준 후킹 파이프라인
+4. C# Harmony 수준의 고수준 후킹 파이프라인,
+5. 공식 서버 종료 후에도 영구 작동하는 오프라인 보존(Abandonware) 인프라
 
-을 제공하는 현존 최고의 안드로이드 Unity 모딩 전략입니다. 모딩을 시작하는 모든 개발자분들께 이 문서가 명확한 이정표가 되기를 바랍니다.
+를 제공하는 현존 최고의 안드로이드 Unity 모딩 전략입니다.

@@ -4,7 +4,7 @@
 // 게임에만 URI 읽기 권한을 주며, 여기서 Java로 그 목록을 받아 크기가 다른 파일만 복사한다.
 // 비서 앱에서 지운 곡은 우리가 가져온 폴더(MARKER 있는 폴더)만 지운다. adb로 직접 넣은 곡은 건드리지 않는다.
 import Java from "frida-java-bridge";
-import { log } from "../log.js";
+import { MOD_DIR, log } from "../log.js";
 
 const AUTHORITY = "content://com.hwa.musedash.assistant.songs";
 const MARKER = ".from_assistant";
@@ -30,6 +30,9 @@ export function pullFromAssistant(destRoot: string): void {
         const Uri = Java.use("android.net.Uri");
         const JFile = Java.use("java.io.File");
         const FileOutputStream = Java.use("java.io.FileOutputStream");
+
+        // 비서 앱에서 요청한 커스텀 로컬 기록 초기화 처리
+        processRecordResets(resolver, Uri, JFile);
 
         // 비서 앱이 없거나 권한을 아직 안 줬으면(재부팅 후 비서 앱을 안 열었을 때) 예외/null → 기존 곡으로 그대로 진행.
         let cursor;
@@ -107,4 +110,83 @@ function deleteRecursive(f: Java.Wrapper): void {
         }
     }
     f.delete();
+}
+
+function safeName(name: string): string {
+    return name.replace(/[\\/:*?"<>|\x00-\x1f]/g, "_");
+}
+
+function processRecordResets(resolver: Java.Wrapper, Uri: Java.Wrapper, JFile: Java.Wrapper): void {
+    let resetCursor;
+    try {
+        resetCursor = resolver.query(Uri.parse(`${AUTHORITY}/record_resets`), null, null, null, null);
+    } catch (e) {
+        return;
+    }
+    if (resetCursor === null) return;
+
+    const targets: string[] = [];
+    try {
+        const targetCol = resetCursor.getColumnIndexOrThrow("target");
+        while (resetCursor.moveToNext()) {
+            const t = resetCursor.getString(targetCol);
+            if (t) targets.push(t);
+        }
+    } catch (e) {
+        log({ t: "record-reset-read-error", error: `${e}` });
+    } finally {
+        resetCursor.close();
+    }
+
+    if (targets.length === 0) return;
+
+    const recordDir = JFile.$new(`${MOD_DIR}/record`);
+    if (!recordDir.exists() || !recordDir.isDirectory()) {
+        ackRecordResets(resolver, Uri);
+        return;
+    }
+
+    const files = recordDir.listFiles();
+    let deletedCount = 0;
+    const isAll = targets.includes("ALL");
+    const prefixes = targets.filter(t => t !== "ALL").map(t => `${safeName(t)}_`);
+
+    if (files !== null) {
+        for (const file of files) {
+            if (!file.isFile()) continue;
+            const fname = file.getName();
+            let shouldDelete = false;
+
+            if (isAll) {
+                if (fname.endsWith(".json") || fname.endsWith(".bak") || fname.endsWith(".tmp")) {
+                    shouldDelete = true;
+                }
+            } else {
+                for (const pfx of prefixes) {
+                    if (fname.startsWith(pfx) && (fname.endsWith(".json") || fname.endsWith(".bak") || fname.endsWith(".tmp"))) {
+                        shouldDelete = true;
+                        break;
+                    }
+                }
+            }
+
+            if (shouldDelete) {
+                if (file.delete()) {
+                    deletedCount++;
+                }
+            }
+        }
+    }
+
+    ackRecordResets(resolver, Uri);
+    log({ t: "record-resets-completed", targets, isAll, deleted: deletedCount });
+}
+
+function ackRecordResets(resolver: Java.Wrapper, Uri: Java.Wrapper): void {
+    try {
+        const ack = resolver.query(Uri.parse(`${AUTHORITY}/record_resets_ack`), null, null, null, null);
+        if (ack !== null) ack.close();
+    } catch (e) {
+        log({ t: "record-reset-ack-error", error: `${e}` });
+    }
 }

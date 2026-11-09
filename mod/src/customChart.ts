@@ -21,6 +21,8 @@ const RVA = {
 let activeSong: HwaSong | null = null;
 let serial = 0;          // SetRuntimeMusicData(=새 배틀·재시작)마다 1씩
 export function battleSerial(): number { return serial; }
+let customBattles = 0;   // 이 프로세스에서 커스텀 곡으로 시작한 배틀 수 (세이브 청소를 할지 정할 때 씀)
+export function customBattleCount(): number { return customBattles; }
 let audioLength = 0;      // 이번 배틀 커스텀 OGG 길이(초)
 
 export function setBattleAudioLength(seconds: number): void { audioLength = seconds; }
@@ -113,6 +115,7 @@ export function installCustomChart(): void {
                     applyAutoPlay(false);
                     return;
                 }
+                customBattles++;
                 applyAutoPlay(shouldAutoPlay());
                 if (song.videoPath && song.manifest.cinema !== false && currentConfig.enableCinema !== false) {
                     startBga(song.videoPath);

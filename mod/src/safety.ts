@@ -4,6 +4,7 @@
 //  - DataManager.Save() 0x1E7D164: 저장 직전 인메모리 DB에서 모든 가상 데이터(1999-*, 1998-*) 정밀 제거(클렌징)
 import { log } from "./log.js";
 import { VIRTUAL_PREFIX } from "./hwa/library.js";
+import { customBattleCount } from "./customChart.js";
 
 const BLOCK: Record<string, number> = {
     "StatisticsManager::UploadScore(SceneUploadResultData)": 0x1ED32E8,
@@ -167,6 +168,10 @@ export function installSafety(): void {
     Interceptor.attach(dataManager.method("Save").virtualAddress, {
         onEnter(args) {
             if (saveCalls++ < 10) log({ t: "save-call", which: "Nice.Datas.DataManager", n: saveCalls });
+            // 가상 곡 항목은 커스텀 곡 배틀 결과로만 들어올 수 있다. 그 전엔 청소하지 않는다:
+            // 청소는 메인 스레드 훅 안에서 C# 메서드를 수백 번 부르고, 예외가 나면 "abort was called"로 끊겨
+            // IL2CPP 상태를 깨뜨릴 수 있다(로딩 중 2번째 Save에서 3번 기록, 찾은 항목은 늘 0개).
+            if (customBattleCount() === 0) return;
             try {
                 const dm = new Il2Cpp.Object(args[0]);
                 cleanSaveData(dm);

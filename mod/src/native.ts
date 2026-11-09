@@ -87,6 +87,16 @@ export function listDir(path: string): DirEntry[] {
     return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+const statNative = new NativeFunction(libc.getExportByName("stat"), "int", ["pointer", "pointer"]);
+const statBuf = Memory.alloc(256);
+
+/** 일반 파일 크기(바이트). 없거나 폴더면 -1. bionic arm64 struct stat: st_mode @16, st_size @48. */
+export function regularFileSize(path: string): number {
+    if ((statNative(Memory.allocUtf8String(path), statBuf) as number) !== 0) return -1;
+    if ((statBuf.add(16).readU32() & 0o170000) !== 0o100000) return -1;
+    return statBuf.add(48).readS64().toNumber();
+}
+
 export function fileExists(path: string): boolean {
     return (access(Memory.allocUtf8String(path), 0) as number) === 0;
 }

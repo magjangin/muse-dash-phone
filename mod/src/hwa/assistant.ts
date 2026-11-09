@@ -5,6 +5,7 @@
 // 비서 앱에서 지운 곡은 우리가 가져온 폴더(MARKER 있는 폴더)만 지운다. adb로 직접 넣은 곡은 건드리지 않는다.
 import Java from "frida-java-bridge";
 import { MOD_DIR, log } from "../log.js";
+import { regularFileSize } from "../native.js";
 
 const AUTHORITY = "content://com.hwa.musedash.assistant.songs";
 const MARKER = ".from_assistant";
@@ -20,6 +21,9 @@ export function pullFromAssistant(destRoot: string): void {
         log({ t: "assistant-sync-skip", reason: "java unavailable" });
         return;
     }
+    // 어디서 멈췄는지 남기려고 시작을 먼저 찍는다(2026-11-07 21:57 이 함수 안에서 돌아오지 않은 판이 있었다).
+    const started = Date.now();
+    log({ t: "assistant-sync-start" });
     Java.performNow(() => {
         const app = Java.use("android.app.ActivityThread").currentApplication();
         if (app === null) {
@@ -46,6 +50,7 @@ export function pullFromAssistant(destRoot: string): void {
             log({ t: "assistant-sync-skip", reason: "provider not found" });
             return;
         }
+        const listed = Date.now();
         const remote: RemoteFile[] = [];
         try {
             const pathCol = cursor.getColumnIndexOrThrow("path");
@@ -61,9 +66,11 @@ export function pullFromAssistant(destRoot: string): void {
         const buffer = Java.array("byte", new Array(65536).fill(0));
         let copied = 0;
         let failed = 0;
+        const read = Date.now();
         for (const f of remote) {
+            // 크기 비교는 libc stat으로 (Java File 호출 2번 × 3천 개가 동기화 시간 대부분이었다)
+            if (regularFileSize(`${destRoot}/${f.path}`) === f.size) continue;
             const local = JFile.$new(`${destRoot}/${f.path}`);
-            if (local.isFile() && Number(local.length()) === f.size) continue;
             try {
                 local.getParentFile().mkdirs();
                 const input = resolver.openInputStream(Uri.parse(fileUri(f.path)));
@@ -98,7 +105,10 @@ export function pullFromAssistant(destRoot: string): void {
                 removed++;
             }
         }
-        log({ t: "assistant-sync", songs: folders.size, files: remote.length, copied, failed, removed });
+        log({
+            t: "assistant-sync", songs: folders.size, files: remote.length, copied, failed, removed,
+            ms: Date.now() - started, queryMs: listed - started, listMs: read - listed
+        });
     });
 }
 

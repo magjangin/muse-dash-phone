@@ -27,7 +27,17 @@ export function createAudioApi() {
     const vorbisClass = findClass("NVorbis.NAudioSupport.VorbisWaveReader")!;
     const sampleChannelClass = findClass("NAudio.Wave.SampleProviders.SampleChannel")!;
     const waveStreamCtor = new NativeFunction(findClass("NAudio.Wave.WaveStream")!.method(".ctor", 0).virtualAddress, "void", ["pointer", "pointer"]);
-    const destroy = Il2Cpp.domain.assembly("UnityEngine.CoreModule").image.class("UnityEngine.Object").method("Destroy", 1);
+    const coreImage = Il2Cpp.domain.assembly("UnityEngine.CoreModule").image;
+    const unityObject = coreImage.class("UnityEngine.Object");
+    const destroy = unityObject.method("Destroy", 1);
+    const opImplicit = unityObject.method<boolean>("op_Implicit", 1);
+    const dontUnload = coreImage.class("UnityEngine.HideFlags").field<Il2Cpp.ValueType>("DontUnloadUnusedAsset").value;
+
+    const isAlive = (o: Il2Cpp.Object | null | undefined): o is Il2Cpp.Object => !!o && !o.isNull() && opImplicit.invoke(o);
+    const keepNative = (o: Il2Cpp.Object): Il2Cpp.Object => {
+        o.method("set_hideFlags", 1).invoke(dontUnload);
+        return o;
+    };
 
     const pins = new Map<string, Il2Cpp.GCHandle>();
     const pin = (o: Il2Cpp.Object) => { pins.set(o.handle.toString(), o.ref(true)); return o; };
@@ -148,7 +158,7 @@ export function createAudioApi() {
 
     const preparation = gameImage().tryClass("PnlPreparation");
     return {
-        manager, destroy, pin, unpin, fullDecode, state, openVorbis, packetReaderOf, streamingClip, backgroundDecode,
+        manager, destroy, pin, unpin, isAlive, keepNative, fullDecode, state, openVorbis, packetReaderOf, streamingClip, backgroundDecode,
         threadClass, threadStartClass, threadStartCtor, readAllPages, preparation
     };
 }

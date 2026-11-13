@@ -42,6 +42,7 @@ export const virtualClones = new Set<string>();
 export type AssetKind = "cover" | "music" | "demo";
 export const assetRequests = new Map<string, { kind: AssetKind; song: HwaSong; hostName: string }>();
 export const assetCache = new Map<string, Il2Cpp.Object>();
+export const hostMusicNames = new Set<string>();
 export const assetKey = (kind: AssetKind, song: HwaSong) => `hwa_${kind}_${song.virtualUid}`;
 
 export function makeVirtualSong(db: Il2Cpp.Object, song: HwaSong): Il2Cpp.Object | null {
@@ -73,6 +74,8 @@ export function makeVirtualSong(db: Il2Cpp.Object, song: HwaSong): Il2Cpp.Object
     clone.handle.add(MI.listIndex).writeS32(index);
     // music 키는 숙주 것 그대로 둔다: 배틀 시작 때 HotfixSystem이 music 키로 트랙 에셋을 확인·다운로드해서, 모르는 키면
     // "데이터 다운로드를 실패했어요"로 시작이 막힌다(2026-10-31 실측). 본곡은 배틀 때 m_MusicUid로 골라 바꾼다(아래).
+    const hostMusic = hostAsset("music");
+    if (hostMusic) hostMusicNames.add(hostMusic);
     const swaps: [AssetKind, number, string | null][] = [
         ["cover", MI.cover, song.coverPath], ["demo", MI.demo, song.musicPath]
     ];

@@ -1,5 +1,6 @@
 // 곡 폴더의 info.txt(`hwa info.txt` 등) 파서. PC 모드 Patches/Hwa/HwaManifestLoader.cs + HwaManifest.cs 이식본.
 // 키는 공백·기호를 빼고 소문자로 만든 뒤 "포함" 규칙으로 고른다(예: "내가 가져올 uid" → uid). 판정 순서가 의미를 가진다.
+import { normalizeEnglishContractions } from "./text.js";
 
 export interface HwaManifest {
     sourcePath: string;
@@ -27,6 +28,8 @@ export interface HwaManifest {
     autoPlay?: boolean | null;
     cinema?: boolean | null;
     blockFever?: boolean | null;
+    /** '크리스마스 배경 = 활성화': 이 곡의 scene_05를 scene_05_christmas로, 5번 보스를 크리스마스 보스로 (PC 1f6270e). */
+    christmasScene?: boolean | null;
     unknownKeys: string[];
 }
 
@@ -106,13 +109,17 @@ function apply(m: HwaManifest, rawKey: string, value: string): void {
     if (has(k, ["시네마", "bga", "video", "cinema", "배경영상"])) { m.cinema = parseNullableBool(value); return; }
     if (has(k, ["피버충전금지", "피버차단", "피버금지", "blockfever", "nofever"])) { m.blockFever = parseNullableBool(value); return; }
     if (has(k, ["권장표", "권장dt", "dt보정", "recommendeddt", "fixdt"])) { m.fixDtToRecommended = parseNullableBool(value); return; }
-    if (has(k, ["가져올앨범", "앨범", "album"])) { m.album = value; return; }
-    if (has(k, ["uid"])) { m.uid = value; return; }
-    if (has(k, ["커스텀아티스트", "customartist", "customauthor"])) { m.customArtist = value; return; }
-    if (has(k, ["레벨디자이너", "leveldesigner"])) { m.levelDesigner = value; return; }
-    if (has(k, ["artist", "아티스트", "author"])) { m.artist = value; return; }
-    if (has(k, ["커스텀곡제목", "커스텀곡이름", "커스텀곡명", "customsongtitle", "customsongname", "customtitle"])) { m.customTitle = value; return; }
-    if (has(k, ["곡이름", "곡명", "곡제목", "가져올곡", "song", "title", "music"])) { m.title = value; return; }
+    // 'christmas scene'처럼 scene이 들어간 키가 씬 번호로 가지 않게 씬 줄보다 먼저 본다(PC와 같은 자리).
+    if (has(k, ["크리스마스", "christmas", "xmas"])) { m.christmasScene = parseNullableBool(value); return; }
+    // 문자열 값은 PC TryApplyString처럼 영문 축약형 공백을 고친다(dc5e804).
+    const text = normalizeEnglishContractions(value);
+    if (has(k, ["가져올앨범", "앨범", "album"])) { m.album = text; return; }
+    if (has(k, ["uid"])) { m.uid = text; return; }
+    if (has(k, ["커스텀아티스트", "customartist", "customauthor"])) { m.customArtist = text; return; }
+    if (has(k, ["레벨디자이너", "leveldesigner"])) { m.levelDesigner = text; return; }
+    if (has(k, ["artist", "아티스트", "author"])) { m.artist = text; return; }
+    if (has(k, ["커스텀곡제목", "커스텀곡이름", "커스텀곡명", "customsongtitle", "customsongname", "customtitle"])) { m.customTitle = text; return; }
+    if (has(k, ["곡이름", "곡명", "곡제목", "가져올곡", "song", "title", "music"])) { m.title = text; return; }
     if (has(k, ["씬번호", "scene"])) { m.scene = parseNullableInt(value); return; }
     if (has(k, ["난이도1", "difficulty1"])) { m.difficulty1 = parseNullableInt(value); return; }
     if (has(k, ["난이도2", "difficulty2"])) { m.difficulty2 = parseNullableInt(value); return; }

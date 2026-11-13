@@ -1,7 +1,7 @@
 // save custom key/config.txt 전역 설정 파일 관리 모듈 (PC InputOverlay.Config.cs 이식).
 // 경로: 1순위 /storage/emulated/0/MuseDash/config.txt (공용)
 //       2순위 <앱 files>/save custom key/config.txt
-// 지원 항목: 오토플레이, 강제퍼펙트, 피버충전금지, 시네마, 고스트노트보이기
+// 지원 항목: 오토플레이, 강제퍼펙트, 피버충전금지, 시네마, 고스트노트보이기, 강제크리스마스
 import { MOD_DIR, log, guard } from "./log.js";
 import { readText, fileExists, makeDir } from "./native.js";
 import { setGlobalAutoPlay } from "./autoplay.js";
@@ -21,6 +21,10 @@ export interface ModConfig {
     blockFever: boolean;
     enableCinema: boolean;
     showGhostNotes: boolean;
+    /** 날짜와 상관없이 크리스마스(12월 24·25일) 연출을 켠다. PC ModConfig.ForceChristmas(1f6270e). 기본 꺼짐. christmas.ts 참고. */
+    forceChristmas: boolean;
+    /** 커스텀 Spine 스킨(캐릭터·노트) 주입. PC MelonPreferences EnableSpineSkin. 기본 켜짐. spineSkin.ts 참고. */
+    enableSpineSkin: boolean;
 }
 
 export let currentConfig: ModConfig = {
@@ -28,7 +32,9 @@ export let currentConfig: ModConfig = {
     forcePerfect: true,
     blockFever: false,
     enableCinema: true,
-    showGhostNotes: true
+    showGhostNotes: true,
+    forceChristmas: false,
+    enableSpineSkin: true
 };
 
 const DEFAULT_CONFIG_TEXT = `# ============================================================================
@@ -54,6 +60,21 @@ const DEFAULT_CONFIG_TEXT = `# =================================================
 # ----------------------------------------------------------------------------
 시네마=true
 고스트노트보이기=true
+
+# ----------------------------------------------------------------------------
+#  [3] 테스트용
+#  - 강제크리스마스 : 날짜와 상관없이 크리스마스(12월 24·25일) 연출을 켭니다.
+#                     공식 곡의 5번 씬 배경·보스가 크리스마스 판으로 바뀝니다. (true / false)
+#                     커스텀 곡은 곡 info.txt의 '크리스마스 배경 = 활성화'로만 바뀝니다.
+# ----------------------------------------------------------------------------
+강제크리스마스=false
+
+# ----------------------------------------------------------------------------
+#  [4] 스킨
+#  - 스파인스킨 : <앱 files>/skin test/ 의 커스텀 Spine 스킨을 씌웁니다. (true / false)
+#                 캐릭터(character/)는 모든 곡, 노트(note/)는 크리스마스 곡에만 적용됩니다.
+# ----------------------------------------------------------------------------
+스파인스킨=true
 `;
 
 function getActiveConfigPath(): string {
@@ -126,6 +147,10 @@ export function reloadConfig(): void {
                 currentConfig.enableCinema = parseBool(val, currentConfig.enableCinema);
             } else if (key === "고스트노트보이기" || key === "공식곡에서도고스트노트보이기" || key === "ghostnotes") {
                 currentConfig.showGhostNotes = parseBool(val, currentConfig.showGhostNotes);
+            } else if (key === "강제크리스마스" || key === "크리스마스" || key === "forcechristmas") {
+                currentConfig.forceChristmas = parseBool(val, currentConfig.forceChristmas);
+            } else if (key === "스파인스킨" || key === "커스텀스킨" || key === "enablespineskin" || key === "spineskin") {
+                currentConfig.enableSpineSkin = parseBool(val, currentConfig.enableSpineSkin);
             }
         }
 
@@ -141,7 +166,9 @@ export function reloadConfig(): void {
             forcePerfect: currentConfig.forcePerfect,
             blockFever: currentConfig.blockFever,
             enableCinema: currentConfig.enableCinema,
-            showGhostNotes: currentConfig.showGhostNotes
+            showGhostNotes: currentConfig.showGhostNotes,
+            forceChristmas: currentConfig.forceChristmas,
+            enableSpineSkin: currentConfig.enableSpineSkin
         });
     });
 }

@@ -22,6 +22,8 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 - **보스 스왑 & 씬 전환** — BMS 첫 보스 자동 선택 및 중간 보스 스왑(`swap:<보스>:<씬>`), 씬 변경 시 누락되는 **판정 과녁 고리(HitPoints)** 자동 복원.
 - **정확도 & 진행바 동기화** — 커스텀 곡 실제 노트 수 기준 정확도 산출, 곡 길이 기준 실시간 진행바 동기화.
 - **커스텀 곡 최고 기록** — 곡·난이도별 최고 점수·등급·콤보·정확도·클리어 수를 `files/record/`에 따로 저장해 준비 화면과 승리 화면에 표시합니다(게임 세이브는 건드리지 않음, 자동 연주는 기록하지 않음).
+- **크리스마스 배경·보스** — 곡 `hwa info.txt`에 `크리스마스 배경 = 활성화`를 쓰면 5번 씬이 날짜와 상관없이 크리스마스 판(`scene_05_christmas`)과 크리스마스 보스로 바뀝니다. 공식 곡까지 바꾸려면 설정의 `강제크리스마스`.
+- **커스텀 Spine 스킨** — `files/skin test/character/`(캐릭터·고스트, 모든 곡)와 `files/skin test/note/`(노트, 크리스마스 곡만)에 Spine 3.8 JSON 세트(`이름.json`·`.atlas`·`.png`)를 넣으면 배틀에서 씌웁니다. 아래 "커스텀 스킨 넣기" 참고.
 - **전역 설정 시스템 (`save custom key/config.txt`)** — 게임을 끄지 않고도 텍스트 파일 수정으로 오토, 올퍼펙트, 피버 등을 실시간 온/오프 가능 (핫리로드).
 - **안전장치** — 점수 업로드 및 클라우드 세이브 요청을 완벽 차단하여 계정 정지 위험을 방지합니다.
 
@@ -43,6 +45,8 @@ PC 모드의 설정 시스템을 안드로이드로 이식했습니다. 게임�
 피버충전금지 = false
 시네마 = true
 고스트노트보이기 = true
+강제크리스마스 = false
+스파인스킨 = true
 ```
 
 | 항목 | 기본값 | 설명 |
@@ -52,6 +56,8 @@ PC 모드의 설정 시스템을 안드로이드로 이식했습니다. 게임�
 | **`피버충전금지`** | `false` | `true`로 설정 시 피버 게이지 충전을 차단 (피버 비활성화 모드) |
 | **`시네마`** | `true` | 곡 폴더에 `.mp4`가 있을 때 BGA 배경 동영상 재생 활성화 |
 | **`고스트노트보이기`** | `true` | 반투명 고스트 노트를 선명하게(불투명도 1.0) 렌더링 |
+| **`강제크리스마스`** | `false` | 날짜와 상관없이 크리스마스(12월 24·25일) 연출을 켭니다. 공식 곡의 5번 씬 배경·보스가 바뀝니다. 커스텀 곡은 곡 `info.txt` 옵션만 따릅니다 |
+| **`스파인스킨`** | `true` | `files/skin test/`의 커스텀 Spine 스킨을 씌웁니다 |
 
 > **팁:** 개별 곡의 `hwa info.txt`에 적힌 설정과 전역 설정 중 하나라도 켜져 있으면 해당 기능이 활성화됩니다.
 
@@ -180,6 +186,40 @@ PC 모드와 100% 동일한 양식을 지원합니다.
 BMS 채보 작성 및 `#WAV` 네이밍 규칙은 PC 가이드를 참고하세요:  
 [CUSTOM_CHART_GUIDE](https://github.com/magjangin/muse-dash-test/blob/main/docs/guides/CUSTOM_CHART_GUIDE.md) · [BMS_PARSING](https://github.com/magjangin/muse-dash-test/blob/main/docs/guides/BMS_PARSING.md)
 
+### 크리스마스 곡
+
+```ini
+씬 번호 : 5
+크리스마스 배경 = 활성화
+```
+
+5번 씬 곡에만 의미가 있습니다(크리스마스 판은 5번 씬에만 있음). 배경이 `scene_05_christmas`로, 5번 보스(`0501_boss`)가 크리스마스 보스로 바뀌고, 아래 노트 스킨도 이 곡에만 씌워집니다.
+
+---
+
+## 🎨 커스텀 스킨 넣기
+
+```text
+/sdcard/Android/data/com.prpr.musedash.mod/files/skin test/
+├─ character/
+│  └─ char_1_rock/          ← 캐릭터 (이름 고정 5종)
+│     ├─ char_1_rock.json
+│     ├─ char_1_rock.atlas
+│     └─ char_1_rock.png
+└─ note/
+   └─ 0512_road/            ← 노트 (게임의 원본 스켈레톤 이름)
+      ├─ 0512_road.json
+      ├─ 0512_road.atlas
+      └─ 0512_road.png
+```
+
+- **캐릭터** 세트 이름은 `char_3_black`, `char_1_sleepy`, `char_1_rock`, `char_1_rampage`, `char_3_violin` 다섯 개입니다. 해당 캐릭터의 배틀 오브젝트와 고스트에 모든 곡에서 씌웁니다(그림자는 그대로).
+- **노트** 세트 이름은 게임 에셋 이름에서 `_SkeletonData`를 뗀 것입니다(`0512_road_SkeletonData` → `0512_road`). **크리스마스 곡에만** 씌웁니다. 노트 프리팹이 부르는 애니메이션 이름이 스킨에 하나라도 없으면 그 노트는 원본을 씁니다.
+- Spine **3.8** 에디터에서 **JSON**으로 내보낸 파일만 읽습니다(`.skel` 바이너리는 안 됨). 배율은 원본 × 2입니다(원본 `.skel`을 가져와 고친 스킨은 좌표가 절반이 되는 관행, PC 모드와 같음).
+- 파일 세 개와 폴더 이름이 같아야 하고, `.atlas` 첫 줄의 페이지 이름이 PNG 이름과 맞아야 합니다. 형식이 맞지 않으면 게임이 죽지 않도록 그 세트를 건너뛰고 `mod.log`에 `skin-bad-files`로 이유를 남깁니다.
+- 폴더는 PC에서 `adb push`로 넣으세요. 폰 안에서 만든 폴더는 권한 때문에 모드가 못 읽을 수 있습니다.
+- 만드는 법은 PC 가이드를 참고하세요: [CUSTOM_SKIN_GUIDE](https://github.com/magjangin/muse-dash-test/blob/main/docs/guides/CUSTOM_SKIN_GUIDE.md)
+
 ---
 
 ## 🔍 모드 로그 확인
@@ -208,6 +248,8 @@ mod/                 TypeScript 모드 소스 (npm run build → dist/mod.js)
   src/hitpoints.ts   판정 과녁 고리 씬 복원기
   src/progress.ts    진행바 동기화
   src/safety.ts      온라인 차단 및 세이브 안전장치
+  src/christmas.ts   크리스마스 배경·보스 (곡 옵션, 강제크리스마스)
+  src/spineSkin.ts   커스텀 Spine 스킨 (캐릭터·노트)
 install/             PC용 원클릭 자동 설치 스크립트
 gadget/              Frida Gadget 설정 (Script 모드)
 docs/                상세 분석 및 문서

@@ -1,5 +1,6 @@
 // BMS 텍스트 → BmsChart. PC 모드 Bms/BmsParser.cs + BmsParser.Lexer.cs + BmsModels.cs 의 이식본(동작 동일 유지).
 // 시간 = tick × 4 × 60 / bpm (tick = 마디 + 셀/셀수). BPM 변경은 '#BPMxx nnn' 선언 + 채널 08만 지원(채널 03은 경고 후 무시).
+import { normalizeEnglishContractions } from "../hwa/text.js";
 
 export const BmsLane = {
     Note: 0,
@@ -94,7 +95,8 @@ export function parseBms(text: string, sourcePath: string | null = null): BmsCha
             m = METADATA.exec(trimmed);
             if (m) {
                 const key = m[1].trim().toUpperCase();
-                const value = m[2].trim();
+                // PC처럼 메타데이터 값 전부에 영문 축약형 공백 교정을 건다(dc5e804). 따옴표가 없으면 그대로.
+                const value = normalizeEnglishContractions(m[2].trim());
                 if (key && value) {
                     chart.metadata.set(key, value);
                     if (key === "TITLE") chart.title = value;

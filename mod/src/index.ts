@@ -21,6 +21,7 @@ import { installSpineSkin } from "./spineSkin.js";
 import { restoreCache } from "./cacheRestore.js";
 import { installRecords } from "./records.js";
 import { installWatchdog } from "./watchdog.js";
+import { installPerf } from "./perf.js";
 import { pullFromAssistant } from "./hwa/assistant.js";
 import { HWA_DIR } from "./hwa/library.js";
 
@@ -70,4 +71,5 @@ whenIl2CppLoaded(() => Il2Cpp.perform(() => {
     guard("spine-skin", installSpineSkin);
     guard("records", installRecords);
     guard("watchdog", installWatchdog);
+    guard("perf", installPerf);
 }, "free"));

@@ -8,6 +8,7 @@ import { chartForDifficulty } from "../hwa/library.js";
 import type { HwaSong } from "../hwa/library.js";
 import { NoteTypes, UidCode, buildSpecsFromBms, effectiveDt, resolvePrefabName, roundChart, roundTiming } from "./spec.js";
 import type { NoteSpec } from "./spec.js";
+import { gameClass } from "../il2cpp.js";
 
 // ---- MusicData 오프셋 (dump.cs, struct 값 기준) ----
 const MD = {
@@ -51,7 +52,7 @@ function officialRow(uid: string): NativePointer | null {
     if (officialRowCache.has(uid)) return officialRowCache.get(uid)!;
     let row: NativePointer | null = null;
     try {
-        const mgr = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.GameCore.Managers.NoteDataMananger");
+        const mgr = gameClass("Assets.Scripts.GameCore.Managers.NoteDataMananger");
         const instance = mgr.method<Il2Cpp.Object>("get_instance").invoke();
         const value = instance.method<Il2Cpp.ValueType>("GetNoteByUid").invoke(Il2Cpp.string(uid));
         if (readIl2CppString(value.handle.add(NC.uid).readPointer()) === uid) {

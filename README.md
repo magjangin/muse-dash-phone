@@ -243,13 +243,16 @@ mod/                 TypeScript 모드 소스 (npm run build → dist/mod.js)
   src/allPerfect.ts  올퍼펙트 판정 승격 및 황금 배너 연출
   src/bga.ts         네이티브 VideoView 기반 BGA 엔진
   src/fever.ts       피버 충전 제어
-  src/battle.ts      보스 스왑, 씬 전환, 판정 및 라이프 엔진
+  src/battle/        보스 스왑(boss), 씬·타이머(scene), offset·노트 싱크(sync), 정확도(accuracy)
   src/ghost.ts       고스트 노트 알파 보정
   src/hitpoints.ts   판정 과녁 고리 씬 복원기
   src/progress.ts    진행바 동기화
   src/safety.ts      온라인 차단 및 세이브 안전장치
   src/christmas.ts   크리스마스 배경·보스 (곡 옵션, 강제크리스마스)
-  src/spineSkin.ts   커스텀 Spine 스킨 (캐릭터·노트)
+  src/spine/         커스텀 Spine 스킨 (캐릭터·노트: 파일 검사, 에셋 만들기, 훅)
+  src/tag/           '실험 모드' 태그·가상 앨범·가상 곡·커버
+  src/audio/         커스텀 곡 미리듣기·본곡 오디오 클립 (OGG 길이, 클립 조립)
+  src/il2cpp.ts      IL2CPP 클래스 찾기 등 공용 헬퍼
 install/             PC용 원클릭 자동 설치 스크립트
 gadget/              Frida Gadget 설정 (Script 모드)
 docs/                상세 분석 및 문서

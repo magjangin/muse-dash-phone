@@ -8,6 +8,7 @@ import { log } from "./log.js";
 import { readIl2CppString } from "./native.js";
 import { battleSerial, battleSong } from "./customChart.js";
 import { currentConfig } from "./config.js";
+import { gameClass } from "./il2cpp.js";
 
 // SpineActionController.m_MusicData(struct) 0xF0 + MusicData.noteData 0x50 → uid +0x10, type +0x38
 const MD_NOTE_UID = 0xF0 + 0x50 + 0x10;
@@ -82,7 +83,7 @@ function apply(controller: Il2Cpp.Object, opaque: boolean): void {
 }
 
 export function installGhost(): void {
-    const Spine = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("SpineActionController");
+    const Spine = gameClass("SpineActionController");
     Interceptor.attach(Spine.method("PlayByKey", 2).virtualAddress, {
         onEnter(args) { (this as any).self = args[0]; (this as any).key = args[1]; },
         onLeave() {

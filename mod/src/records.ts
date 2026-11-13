@@ -11,7 +11,8 @@ import { chartForDifficulty, songForUid } from "./hwa/library.js";
 import type { HwaSong } from "./hwa/library.js";
 import type { BmsChart } from "./bms/parser.js";
 import { shouldAutoPlay } from "./autoplay.js";
-import { customAccuracy } from "./battle.js";
+import { customAccuracy } from "./battle/accuracy.js";
+import { gameClass } from "./il2cpp.js";
 
 const RVA = {
     OnShowVictory: 0x1C808E0,   // PnlVictory2dManager.OnShowVictory
@@ -51,16 +52,15 @@ interface PlayRecord {
 const libc = Process.getModuleByName("libc.so");
 const rename = new NativeFunction(libc.getExportByName("rename"), "int", ["pointer", "pointer"]);
 
-const asm = () => Il2Cpp.domain.assembly("Assembly-CSharp").image;
 
 function battleStage(): Il2Cpp.Object | null {
-    const stage = asm().class("Assets.Scripts.Database.GlobalDataBase").field<Il2Cpp.Object>("s_DbBattleStage").value;
+    const stage = gameClass("Assets.Scripts.Database.GlobalDataBase").field<Il2Cpp.Object>("s_DbBattleStage").value;
     return stage && !stage.isNull() ? stage : null;
 }
 
 /** 준비 화면에서 고른 곡 uid. DataHelper.selectedMusicUid → 없으면 s_DbBattleStage.m_MusicUid. */
 function selectedUid(): string | null {
-    const fromHelper = asm().class("Assets.Scripts.Database.DataHelper").method<Il2Cpp.String>("get_selectedMusicUid").invoke();
+    const fromHelper = gameClass("Assets.Scripts.Database.DataHelper").method<Il2Cpp.String>("get_selectedMusicUid").invoke();
     if (fromHelper && !fromHelper.isNull() && fromHelper.content) return fromHelper.content;
     const uid = battleStage()?.field<Il2Cpp.String>("m_MusicUid").value;
     return uid && !uid.isNull() ? uid.content : null;
@@ -140,7 +140,7 @@ function saveVictory(): void {
         log({ t: "record-skip", song: song.name, reason: "autoplay" });
         return;
     }
-    const target = asm().class("Assets.Scripts.GameCore.HostComponent.TaskStageTarget").method<Il2Cpp.Object>("get_instance").invoke();
+    const target = gameClass("Assets.Scripts.GameCore.HostComponent.TaskStageTarget").method<Il2Cpp.Object>("get_instance").invoke();
     if (!target || target.isNull()) return;
     const read = (off: number) => target.handle.add(off).readS32();
     const perfect = read(TST.perfect), great = read(TST.great), miss = read(TST.miss);
@@ -174,7 +174,7 @@ function showVictoryBest(victory: NativePointer): void {
     saveVictory();
     const controls = victory.add(PV.curControls).readPointer();
     if (controls.isNull()) return;
-    const score = asm().class("Assets.Scripts.GameCore.HostComponent.TaskStageTarget").method<Il2Cpp.Object>("get_instance").invoke().handle.add(TST.score).readS32();
+    const score = gameClass("Assets.Scripts.GameCore.HostComponent.TaskStageTarget").method<Il2Cpp.Object>("get_instance").invoke().handle.add(TST.score).readS32();
     setText(controls, PV.highScoreTxt, `${saved.best ?? 0}`);
     const newBest = controls.add(PV.newBest).readPointer();
     if (!newBest.isNull()) new Il2Cpp.Object(newBest).method("SetActive").invoke(saved.best !== saved.previousBest && score === saved.best);
@@ -188,7 +188,7 @@ function setText(panel: NativePointer, offset: number, text: string): void {
 
 /** 게임의 등급 문자열. TaskStageTarget.GetCustomStageEvalute(정확도, FC) → KeyValuePair<string,int>의 key. */
 function grade(record: PlayRecord): string | null {
-    const target = asm().class("Assets.Scripts.GameCore.HostComponent.TaskStageTarget").method<Il2Cpp.Object>("get_instance").invoke();
+    const target = gameClass("Assets.Scripts.GameCore.HostComponent.TaskStageTarget").method<Il2Cpp.Object>("get_instance").invoke();
     const key = target.method<Il2Cpp.ValueType>("GetCustomStageEvalute").invoke(record.accuracy, record.isFullCombo).field<Il2Cpp.String>("key").value;
     return key && !key.isNull() ? key.content : null;
 }

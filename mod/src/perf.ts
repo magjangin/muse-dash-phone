@@ -2,6 +2,7 @@
 //  - frame-hitch: UnityGameManager.LoopUpdate 사이 간격이 HITCH_MS 이상 (한 프로세스 최대 MAX_HITCH 줄)
 //  - audio-update: RuntimeAudioClipLoader.Manager.Update(백그라운드 디코드가 끝난 클립에 SetData) 한 번이 SLOW_MS 이상
 import { log } from "./log.js";
+import { gameImage } from "./il2cpp.js";
 
 const HITCH_MS = 100;
 const SLOW_MS = 8;
@@ -18,7 +19,7 @@ export function perfMark(what: string): void {
 }
 
 export function installPerf(): void {
-    const asm = Il2Cpp.domain.assembly("Assembly-CSharp").image;
+    const asm = gameImage();
     const loop = asm.class("Assets.Scripts.PeroTools.Managers.UnityGameManager").method("LoopUpdate", 0);
     Interceptor.attach(loop.virtualAddress, {
         onEnter() {

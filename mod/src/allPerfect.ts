@@ -3,6 +3,7 @@
 // 2. PnlVictory2dManager.ShowFullCombo (0x1C806E0) & OnShowVictory (0x1C808E0) 훅으로 클리어 시 "ALL PERFECT !" 황금 배너 표시.
 import { log } from "./log.js";
 import { stopBga } from "./bga.js";
+import { gameClass } from "./il2cpp.js";
 
 const RVA = {
     TouchResult: 0x1D4D0D4,         // GameTouchPlay.TouchResult(int idx, byte resultCode, uint actionType, TimeNodeOrder tno, bool isSkill, bool isElfinSkill)
@@ -74,7 +75,7 @@ function resolveFont(): Il2Cpp.Object | null {
 
 function isAllPerfect(): boolean {
     try {
-        const TaskStageTarget = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.GameCore.HostComponent.TaskStageTarget");
+        const TaskStageTarget = gameClass("Assets.Scripts.GameCore.HostComponent.TaskStageTarget");
         const instance = TaskStageTarget.method<Il2Cpp.Object>("get_instance").invoke();
         if (!instance || instance.isNull()) return false;
 

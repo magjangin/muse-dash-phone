@@ -15,6 +15,7 @@ import { guard, log } from "./log.js";
 import { pinnedString, readIl2CppString } from "./native.js";
 import { currentConfig } from "./config.js";
 import { currentCustomSong } from "./customChart.js";
+import { gameClass } from "./il2cpp.js";
 
 export const SCENE05 = "scene_05";
 export const SCENE05_CHRISTMAS = "scene_05_christmas";
@@ -34,7 +35,6 @@ export function christmasBoss(name: string, scene: number, force: boolean): { na
     return { name, scene };
 }
 
-const asm = () => Il2Cpp.domain.assembly("Assembly-CSharp").image;
 
 /** string → string 메서드의 반환을 크리스마스 판으로 (원본은 그대로 부르고 결과만 바꿈 = PC Postfix). */
 function festival(method: Il2Cpp.Method, tag: string, accepts: (name: string, result: string) => boolean, to: string): void {
@@ -57,7 +57,7 @@ function festival(method: Il2Cpp.Method, tag: string, accepts: (name: string, re
 
 export function installChristmas(): void {
     // 날짜 판정: 전역 설정이 켜졌을 때만 참으로 (원래 참이면 그대로).
-    const isChristmas = asm().class("Assets.Scripts.Database.BattleHelper").method("get_isChristmas");
+    const isChristmas = gameClass("Assets.Scripts.Database.BattleHelper").method("get_isChristmas");
     let loggedDate = false;
     Interceptor.attach(isChristmas.virtualAddress, {
         onLeave(ret) {
@@ -68,10 +68,10 @@ export function installChristmas(): void {
     });
 
     // 배경: 크리스마스 판은 5번 씬에만 있다. 게임이 이미 바꿨으면(진짜 12/24·25 등) 손대지 않는다.
-    festival(asm().class("GameLogic.GameMusicScene").method("SceneFestival", 1), "christmas-scene",
+    festival(gameClass("GameLogic.GameMusicScene").method("SceneFestival", 1), "christmas-scene",
         (name, result) => name === SCENE05 && result === SCENE05, SCENE05_CHRISTMAS);
     // 보스
-    festival(asm().class("Boss").method("BossFestival", 1), "christmas-boss",
+    festival(gameClass("Boss").method("BossFestival", 1), "christmas-boss",
         (name, result) => (name === BOSS05 || name === BOSS05_CHRISTMAS) && (result === BOSS05 || result === BOSS05_CHRISTMAS),
         BOSS05_CHRISTMAS);
 

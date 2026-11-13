@@ -15,8 +15,8 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
   └ Il2Cpp.perform
       ├ safety      점수 업로드·클라우드 세이브 차단
       ├ customChart files/hwa/<곡>/ 스캔 → BMS 파싱 → 가상 곡 1999-N
-      ├ customTag   MusicTagManager.InitAlbumTagInfo 이후 "실험 모드" 태그·앨범·곡 등록
-      ├ battle      보스·씬·타이머·정확도·offset
+      ├ tag/        MusicTagManager.InitAlbumTagInfo 이후 "실험 모드" 태그·앨범·곡 등록
+      ├ battle/     보스·씬·타이머·정확도·offset
       ├ ghost / hitpoints / progress
 곡 선택  ─ LoadFromName 훅: hwa_cover_1999-N → Sprite, hwa_demo_1999-N → AudioClip
 배틀 시작 ─ DBStageInfo.SetRuntimeMusicData → BMS → MusicData 배열 주입
@@ -37,12 +37,15 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `chart/spec.ts` | `DBStageInfoExperimentChart.*.cs`, `BmsNoteMatcher.cs`, `BmsDtTable.cs` | 노트 스펙·프리팹·dt·보스 자동 교체 |
 | `chart/inject.ts` | `DBStageInfoExperimentChart.cs` + `.Sorting.cs` | MusicData 배열 생성·동시치기·showTick 정렬 |
 | `customChart.ts` | `DBStageInfoPatch.cs` | SetRuntimeMusicData 훅, delay |
-| `customTag.ts` | `CustomTagRegistry.cs`, `CustomTagPatch.cs` | 태그·가상 앨범·가상 곡·제목·커버·미리듣기 |
-| `battle.ts` | `BossPatch.cs`, `GameMusicScene*Patch.cs`, `SceneFlowPatch.cs`, `NoteAnimationSyncPatch.cs`, `APModPatch.Accuracy.cs`, `OffsetHookPatches` | 배틀 보조 |
+| `tag/` (`index`·`virtual`·`icon`·`sprite`) | `CustomTagRegistry.cs`, `CustomTagPatch.cs` | 태그·가상 앨범·가상 곡·제목·커버 |
+| `audio/` (`index`·`clips`·`ogg`) | (PC 9ee7036 대응) | 미리듣기 스트리밍 클립·본곡 미리 디코드 |
+| `battle/` (`boss`·`scene`·`sync`·`accuracy`) | `BossPatch.cs`, `GameMusicScene*Patch.cs`, `SceneFlowPatch.cs`, `NoteAnimationSyncPatch.cs`, `APModPatch.Accuracy.cs`, `OffsetHookPatches` | 배틀 보조 |
 | `ghost.ts` | 고스트 노트 보이기 | Spine 타임라인 알파 |
 | `hitpoints.ts` | `ExperimentHitPointInstaller.cs` | 씬을 바꾼 뒤 빠지는 판정 과녁 고리 복구 |
 | `progress.ts` | `ProgressBarPatch.cs`, `HwaSyncManager` | 진행바 = 게임 시계 / 곡 길이 |
 | `safety.ts` | (Android 전용) | 서버 업로드 차단 |
+| `spine/` (`index`·`build`·`files`·`actions`) | `Spine/CustomSkinInjector.cs`, `NoteSkinInjector.cs`, `NoteSkinRules.cs` | 커스텀 Spine 스킨 |
+| `il2cpp.ts` | — | 클래스 찾기·바이트 배열 공용 헬퍼 |
 
 ## 주요 훅
 

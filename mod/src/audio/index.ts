@@ -34,7 +34,7 @@ export interface CustomAudio {
 }
 
 export function installCustomAudio(): CustomAudio {
-    const { manager, destroy, pin, unpin, fullDecode, state, openVorbis, packetReaderOf, streamingClip, backgroundDecode,
+    const { manager, destroy, pin, unpin, isAlive, keepNative, fullDecode, state, openVorbis, packetReaderOf, streamingClip, backgroundDecode,
         threadClass, threadStartClass, threadStartCtor, readAllPages, preparation } = createAudioApi();
 
     // 미리 훑기(warm-up): 곡 목록 커버를 처음 그릴 때 곡마다 리더를 열고(메인 스레드, 프레임당 하나),
@@ -102,7 +102,7 @@ export function installCustomAudio(): CustomAudio {
     });
 
     const predecode = (song: HwaSong, why: string) => {
-        if (full?.uid === song.virtualUid || !song.musicPath) return;
+        if ((full?.uid === song.virtualUid && isAlive(full.clip)) || !song.musicPath) return;
         const started = Date.now();
         let how = "direct";
         let clip: Il2Cpp.Object | null = null;
@@ -135,7 +135,8 @@ export function installCustomAudio(): CustomAudio {
         preview(song) {
             lastPreview = song;
             let clip = previews.get(song.virtualUid) ?? null;
-            if (clip) return clip;
+            if (isAlive(clip)) return clip;
+            if (clip) previews.delete(song.virtualUid);
             const started = Date.now();
             let how = "cold";
             try {
@@ -160,6 +161,8 @@ export function installCustomAudio(): CustomAudio {
                 clip = c && !c.isNull() ? pin(c) : null;
             }
             if (!clip) return null;
+            // 씬 전환(UISystem ↔ GameMain) 때 Resources.UnloadUnusedAssets가 미리듣기 AudioClip을 지우지 않도록 막는다.
+            keepNative(clip);
             previews.set(song.virtualUid, clip);
             const ms = Date.now() - started;
             perfMark(`preview-${how}:${ms}`);
@@ -167,7 +170,7 @@ export function installCustomAudio(): CustomAudio {
             return clip;
         },
         music(song) {
-            if (full?.uid === song.virtualUid) {
+            if (full?.uid === song.virtualUid && isAlive(full.clip)) {
                 const ready = !full.background || state(full.clip) === AUDIO_LOADED;
                 log({ t: "music-from-predecode", uid: song.virtualUid, ready });
                 if (ready) return full.clip;

@@ -8,10 +8,11 @@ import { guard, log } from "../log.js";
 import { pinnedString } from "../native.js";
 import { gameClass } from "../il2cpp.js";
 import { TAG_INDEX, TAG_UID, allSongs } from "../hwa/library.js";
+import type { HwaSong } from "../hwa/library.js";
 import { currentCustomSong, setBattleAudioLength } from "../customChart.js";
 import { getTagIconPath } from "./icon.js";
 import { spriteFromFile } from "./sprite.js";
-import { ALBUM_TITLE, VIRTUAL_ALBUM_LIST_INDEX, VIRTUAL_LIST_INDEX_BASE, assetCache, assetRequests, localByClone, localByListIndex, makeAlbum, makeVirtualSong, virtualClones } from "./virtual.js";
+import { ALBUM_TITLE, VIRTUAL_ALBUM_LIST_INDEX, VIRTUAL_LIST_INDEX_BASE, assetCache, assetRequests, hostMusicNames, localByClone, localByListIndex, makeAlbum, makeVirtualSong, virtualClones } from "./virtual.js";
 
 const TAG_NAMES: [string, string][] = [
     ["Korean", "실험 모드"], ["English", "Experiment Mod"], ["Japanese", "実験モード"],
@@ -138,7 +139,17 @@ export function installCustomTag(): void {
     }, "pointer", ["pointer", "int", "pointer"]));
 
     // 커버·음악·미리듣기: 가상 키로 요청되면 원본엔 숙주 에셋 이름을 넘기고, 끝나면 곡 폴더 파일로 만든 것으로 바꾼다.
+    // 본곡은 StageBattleComponent.PlayMusic / AudioManager.LoadBgm 호출 깊이 또는 hostMusicNames로도 잡아,
+    // 숙주의 music 키가 `_music`으로 끝나지 않는 곡에서도 숙주 BGM이 대신 나오는 일을 막는다.
     const audio = installCustomAudio();
+    let battleBgmDepth = 0;
+    const trackBattleBgm = (addr: NativePointer) => Interceptor.attach(addr, {
+        onEnter() { battleBgmDepth++; },
+        onLeave() { battleBgmDepth--; }
+    });
+    trackBattleBgm(cls("FormulaBase.StageBattleComponent").method("PlayMusic").virtualAddress);
+    trackBattleBgm(cls("Assets.Scripts.PeroTools.Managers.AudioManager").method("LoadBgm").virtualAddress);
+
     Interceptor.attach(Il2Cpp.module.base.add(0x1FDA3D4), {   // ResourcesManager.LoadFromName<T>(string) 공유 본체
         onEnter(args) {
             const p = args[1];
@@ -149,18 +160,21 @@ export function installCustomTag(): void {
             if (req) {
                 (this as any).asset = name;
                 args[1] = pinnedString(req.hostName);
-            } else if (name.endsWith("_music")) {
-                (this as any).music = name;
+            } else if (battleBgmDepth > 0 || name.endsWith("_music") || hostMusicNames.has(name)) {
+                const song = currentCustomSong();
+                if (song?.musicPath) (this as any).music = { name, song };
             }
         },
         onLeave(ret) {
-            if (ret.isNull()) return;
+            const musicReq = (this as any).music as { name: string; song: HwaSong } | undefined;
+            if (ret.isNull() && ((this as any).asset || musicReq)) {
+                log({ t: "asset-load-null", asset: (this as any).asset ?? null, music: musicReq?.name ?? null });
+            }
             // 본곡: 배틀 시작 시점엔 m_MusicUid가 가상 곡 uid라 그걸로 고른다.
-            if ((this as any).music) {
-                const song = currentCustomSong();
-                if (!song?.musicPath) return;
-                (this as any).asset = `hwa_music_${song.virtualUid}`;
-                if (!assetRequests.has((this as any).asset)) assetRequests.set((this as any).asset, { kind: "music", song, hostName: (this as any).music });
+            if (musicReq) {
+                const key = `hwa_music_${musicReq.song.virtualUid}`;
+                (this as any).asset = key;
+                if (!assetRequests.has(key)) assetRequests.set(key, { kind: "music", song: musicReq.song, hostName: musicReq.name });
             }
             const key: string | undefined = (this as any).asset;
             if (!key) return;

@@ -1,5 +1,6 @@
 // il2cpp-bridge가 이 빌드에서 이름으로 제대로 찾는지 확인: 클래스·메서드를 이름으로 찾아 dump.cs RVA와 비교한다.
 import { log } from "./log.js";
+import { gameImage } from "./il2cpp.js";
 
 const EXPECT: [string, string, number][] = [
     ["MusicTagManager", "InitAlbumTagInfo", 0x1DE4E34],
@@ -9,7 +10,7 @@ const EXPECT: [string, string, number][] = [
 ];
 
 export function probe(): void {
-    const image = Il2Cpp.domain.assembly("Assembly-CSharp").image;
+    const image = gameImage();
     const results = EXPECT.map(([cls, method, rva]) => {
         const k = image.tryClass(cls);
         const m = k?.tryMethod(method);

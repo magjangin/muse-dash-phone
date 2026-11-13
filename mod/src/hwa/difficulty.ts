@@ -1,7 +1,8 @@
 // 게임의 난이도 값 두 가지 (PC 모드 CustomRecordStore.ResolveBattleDifficulty / ResolveSelectedDifficulty).
 // 게임은 배틀 씬을 준비할 때(DBBattleStage.AwakeInit) BattleHelper.GetNoteJsonName(out m_MapDifficulty)로 값을 채운다.
 // 그래서 m_MapDifficulty는 곡 선택 화면에서 탭을 바꿔도 다음 배틀 전까지 그대로다. 메뉴에서는 탭 칸을 직접 읽어야 한다.
-const globalDataBase = () => Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.Database.GlobalDataBase");
+import { gameClass } from "../il2cpp.js";
+const globalDataBase = () => gameClass("Assets.Scripts.Database.GlobalDataBase");
 
 /** 이번 배틀에서 실제로 불러온 난이도. 배틀 진입 후(채보 주입·보스·승리 기록)에 쓴다. 못 구하면 1. */
 export function battleDifficulty(): number {

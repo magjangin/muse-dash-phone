@@ -11,6 +11,7 @@ import { writeDecimal } from "./native.js";
 import { startBga, stopBga } from "./bga.js";
 import { applyAutoPlay, shouldAutoPlay } from "./autoplay.js";
 import { currentConfig } from "./config.js";
+import { gameClass } from "./il2cpp.js";
 
 const RVA = {
     SetRuntimeMusicData: 0x20D29D4,   // DBStageInfo.SetRuntimeMusicData(List<MusicData>) = this.musicList = data
@@ -36,20 +37,12 @@ export function battleDuration(): number {
 }
 let lastChartEnd = 0;
 
-function findClass(name: string): Il2Cpp.Class | null {
-    for (const a of Il2Cpp.domain.assemblies) {
-        const k = a.image.tryClass(name);
-        if (k) return k;
-    }
-    return null;
-}
-
 /** 지금 고른 곡이 커스텀 곡이면 그 곡 (배틀 전 단계 훅용). */
 export function currentCustomSong(): HwaSong | null { return songForUid(currentMusicUid()); }
 
 /** GlobalDataBase.s_DbBattleStage.m_MusicUid — 지금 고른 곡 uid(예 "0-4"). */
 function currentMusicUid(): string | null {
-    const gdb = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.Database.GlobalDataBase");
+    const gdb = gameClass("Assets.Scripts.Database.GlobalDataBase");
     const stage = gdb.field<Il2Cpp.Object>("s_DbBattleStage").value;
     if (!stage || stage.isNull()) return null;
     const uid = stage.field<Il2Cpp.String>("m_MusicUid").value;
@@ -58,7 +51,7 @@ function currentMusicUid(): string | null {
 
 /** 숙주 uid의 실제 곡 이름(현재 언어). 게임 DB가 아직 안 만들어졌으면 null. */
 function hostSongName(uid: string): string | null {
-    const gdb = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.Database.GlobalDataBase");
+    const gdb = gameClass("Assets.Scripts.Database.GlobalDataBase");
     const tag = gdb.field<Il2Cpp.Object>("s_DbMusicTag").value;
     if (!tag || tag.isNull()) return null;
     const info = tag.method<Il2Cpp.Object>("GetMusicInfoFromAll").invoke(Il2Cpp.string(uid));
@@ -75,13 +68,13 @@ export function installCustomChart(): void {
         return;
     }
     const base = Il2Cpp.module.base;
-    const musicDataClass = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("GameLogic.MusicData");
+    const musicDataClass = gameClass("GameLogic.MusicData");
     log({ t: "custom-chart-classes", musicDataSize: musicDataClass.valueTypeSize });
 
     // 숙주 곡에 없는 난이도를 고르면 게임이 없는 차트 에셋(<곡>_map<N>)을 불러오다 NRE로 멈춘다(보라색 화면, 2026-11-05 실측: 0-4의 Master).
     // 숙주 차트는 어차피 틀로만 쓰므로 있는 난이도의 에셋을 대신 불러오게 한다. 난이도 번호 자체(m_MapDifficulty)는 그대로 둔다.
     const STAGE_MAP_NAME = 0x50;   // DBBattleStage.m_StageMapName (dump.cs)
-    const stageBattle = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("FormulaBase.StageBattleComponent");
+    const stageBattle = gameClass("FormulaBase.StageBattleComponent");
     Interceptor.attach(stageBattle.method("GetMusicDataFromStageInfo").virtualAddress, {
         onEnter() {
             const song = currentCustomSong();
@@ -90,7 +83,7 @@ export function installCustomChart(): void {
                 const difficulty = battleDifficulty();
                 const map = pickHostMap(song.hostMaps, difficulty);
                 if (map === difficulty) return;
-                const gdb = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.Database.GlobalDataBase");
+                const gdb = gameClass("Assets.Scripts.Database.GlobalDataBase");
                 const slot = gdb.field<Il2Cpp.Object>("s_DbBattleStage").value.handle.add(STAGE_MAP_NAME);
                 const from = readIl2CppString(slot.readPointer());
                 if (!from) return;

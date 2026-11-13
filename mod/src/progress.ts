@@ -6,8 +6,8 @@
 import { log } from "./log.js";
 import { battleDuration, battleSong } from "./customChart.js";
 import { onFrame } from "./frame.js";
+import { gameClass } from "./il2cpp.js";
 
-const asm = () => Il2Cpp.domain.assembly("Assembly-CSharp").image;
 const UPDATE_MS = 100;
 
 let stage: Il2Cpp.Object | null = null;
@@ -17,14 +17,14 @@ export function customProgress(): number | null {
     if (!battleSong()) return null;
     const duration = battleDuration();
     if (duration <= 1) return null;
-    if (!stage || stage.isNull()) stage = asm().class("FormulaBase.StageBattleComponent").method<Il2Cpp.Object>("get_instance").invoke();
+    if (!stage || stage.isNull()) stage = gameClass("FormulaBase.StageBattleComponent").method<Il2Cpp.Object>("get_instance").invoke();
     if (!stage.field<boolean>("isInGame").value) return null;
     const elapsed = stage.method<number>("get_timeFromMusicStart").invoke();
     return Math.min(1, Math.max(0, elapsed / duration));
 }
 
 export function installProgress(): void {
-    const Stage = asm().class("FormulaBase.StageBattleComponent");
+    const Stage = gameClass("FormulaBase.StageBattleComponent");
     const getTimeProgress = Stage.method("GetTimeProgress", 0).virtualAddress;
     const getTimeProgressOriginal = new NativeFunction(getTimeProgress, "float", ["pointer", "pointer"]);
     Interceptor.replace(getTimeProgress, new NativeCallback((self: NativePointer, method: NativePointer) => {
@@ -32,7 +32,7 @@ export function installProgress(): void {
         return r === null ? (getTimeProgressOriginal(self, method) as number) : r;
     }, "float", ["pointer", "pointer"]));
 
-    const PnlBattle = asm().class("Assets.Scripts.UI.Panels.PnlBattle");
+    const PnlBattle = gameClass("Assets.Scripts.UI.Panels.PnlBattle");
     const setter = PnlBattle.method("<MusicProgressInit>b__48_1", 1).virtualAddress;
     const setterOriginal = new NativeFunction(setter, "void", ["pointer", "float", "pointer"]);
     Interceptor.replace(setter, new NativeCallback((self: NativePointer, value: number, method: NativePointer) => {

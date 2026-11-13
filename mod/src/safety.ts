@@ -5,6 +5,7 @@
 import { log } from "./log.js";
 import { VIRTUAL_PREFIX } from "./hwa/library.js";
 import { customBattleCount } from "./customChart.js";
+import { gameClass } from "./il2cpp.js";
 
 const BLOCK: Record<string, number> = {
     "StatisticsManager::UploadScore(SceneUploadResultData)": 0x1ED32E8,
@@ -162,7 +163,7 @@ export function installSafety(): void {
     }
 
     // DataManager.Save() 직전에 가상 곡 세이브 오염 정밀 청소 실행
-    const dataManager = Il2Cpp.domain.assembly("Assembly-CSharp").image.class("Assets.Scripts.PeroTools.Nice.Datas.DataManager");
+    const dataManager = gameClass("Assets.Scripts.PeroTools.Nice.Datas.DataManager");
     let saveCalls = 0;
 
     Interceptor.attach(dataManager.method("Save").virtualAddress, {

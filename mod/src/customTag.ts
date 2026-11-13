@@ -1,6 +1,8 @@
 // 커스텀 태그 "실험 모드" + 가상 앨범(1999-0) + 가상 곡(1999-N, 숙주 곡 MusicInfo 얕은 복제) 주입.
 // PC 모드 Patches/UI/Custom/Tags/CustomTagRegistry.cs + Support/CustomTagRegistrySupport.cs + CustomTagPatch.cs 이식본.
 // 게임 자체의 커스텀 태그 구조(DBConfigCustomTags.CustomTagInfo → AlbumTagInfo.InitCustomTagInfo → DBMusicTag.AddAlbumTagData)를 그대로 쓴다.
+import { perfMark } from "./perf.js";
+import { installCustomAudio } from "./customAudio.js";
 import { MOD_DIR, guard, log } from "./log.js";
 import { fileReadable, pinnedString, readIl2CppString } from "./native.js";
 import { hasMapForLevel } from "./hwa/chartFiles.js";
@@ -260,8 +262,12 @@ function spriteFromFile(path: string): Il2Cpp.Object | null {
     const pivot = unityClass("UnityEngine.CoreModule", "UnityEngine.Vector2").alloc().unbox();
     pivot.field<number>("x").value = 0.5;
     pivot.field<number>("y").value = 0.5;
+    // meshType FullRect: 기본(Tight)은 알파 외곽선으로 메시를 만들어 720px 커버 1장에 21~52 ms가 걸렸다(2026-11-13 실측,
+    // 태그 진입 때 5장이 한 프레임에 몰려 641 ms 멈춤). 커버는 네모 그림이라 FullRect로 충분하다.
+    const meshTypes = unityClass("UnityEngine.CoreModule", "UnityEngine.SpriteMeshType");
     const sprite = unityClass("UnityEngine.CoreModule", "UnityEngine.Sprite").method<Il2Cpp.Object>("Create")
-        .overload("UnityEngine.Texture2D", "UnityEngine.Rect", "UnityEngine.Vector2").invoke(tex, rect, pivot);
+        .overload("UnityEngine.Texture2D", "UnityEngine.Rect", "UnityEngine.Vector2", "System.Single", "System.UInt32", "UnityEngine.SpriteMeshType")
+        .invoke(tex, rect, pivot, 100, 0, meshTypes.field<Il2Cpp.ValueType>("FullRect").value);
     if (!sprite || sprite.isNull()) return null;
     tex.ref(true);
     sprite.ref(true);
@@ -319,16 +325,7 @@ export function installCustomTag(): void {
     }, "pointer", ["pointer", "int", "pointer"]));
 
     // 커버·음악·미리듣기: 가상 키로 요청되면 원본엔 숙주 에셋 이름을 넘기고, 끝나면 곡 폴더 파일로 만든 것으로 바꾼다.
-    const audioLoader = findClass("RuntimeAudioClipLoader.Manager");
-    // AudioDataLoadState: Unloaded 0, Loading 1, Loaded 2, Failed 3. 동기로 만든 클립은 Manager가 상태를 안 적어 0으로 나온다.
-    const AUDIO_LOADED = 2;
-    const backgroundClips = new Set<string>();
-    const audioLoadState = (clip: Il2Cpp.Object): number => {
-        if (!backgroundClips.has(clip.handle.toString())) return AUDIO_LOADED;
-        // enum 반환값은 bridge가 숫자가 아니라 ValueType으로 준다 → value__ 를 읽는다(숫자로 비교하면 늘 '안 풀림').
-        const state = audioLoader?.method<Il2Cpp.ValueType>("GetAudioClipLoadState", 1).invoke(clip);
-        return state ? state.field<number>("value__").value : AUDIO_LOADED;
-    };
+    const audio = installCustomAudio();
     Interceptor.attach(Il2Cpp.module.base.add(0x1FDA3D4), {   // ResourcesManager.LoadFromName<T>(string) 공유 본체
         onEnter(args) {
             const p = args[1];
@@ -356,30 +353,23 @@ export function installCustomTag(): void {
             if (!key) return;
             guard("asset-swap", () => {
                 const req = assetRequests.get(key)!;
-                // 음악과 미리듣기는 같은 OGG → 한 번만 디코드
-                const cacheKey = req.kind === "cover" ? key : `audio:${req.song.virtualUid}`;
-                let made = assetCache.get(cacheKey);
-                // 본곡은 다 풀린 클립만 쓴다. 미리듣기가 백그라운드로 아직 푸는 중이면 동기로 따로 풀어 그걸로 바꾼다.
-                if (made && req.kind === "music") {
-                    const state = audioLoadState(made);
-                    log({ t: "music-from-preview", uid: req.song.virtualUid, state });
-                    if (state !== AUDIO_LOADED) made = undefined;
+                const started = Date.now();
+                let made: Il2Cpp.Object | null;
+                if (req.kind === "cover") {
+                    audio.warmAll(allSongs());
+                    made = assetCache.get(key) ?? null;
+                    if (!made) {
+                        made = spriteFromFile(req.song.coverPath!);
+                        if (made) assetCache.set(key, made);
+                        log({ t: "asset-made", key, kind: req.kind, ms: Date.now() - started });
+                        perfMark(`cover:${Date.now() - started}`);
+                    }
+                } else if (req.kind === "demo") {
+                    made = audio.preview(req.song);
+                } else {
+                    made = audio.music(req.song);
                 }
-                if (!made) {
-                    const started = Date.now();
-                    // 미리듣기는 RuntimeAudioClipLoader 백그라운드 디코드(loadInBackground): 클립은 바로 생기고 데이터는
-                    // Manager.Update가 나중에 채운다. 동기로 풀면 곡 선택 화면이 약 5초 멈췄다(입력도 씹힘).
-                    const background = req.kind === "demo";
-                    const obj = req.kind === "cover"
-                        ? spriteFromFile(req.song.coverPath!)
-                        : audioLoader?.method<Il2Cpp.Object>("Load", 4).invoke(Il2Cpp.string(req.song.musicPath!), false, background, background) ?? null;
-                    if (!obj || obj.isNull()) { log({ t: "asset-fail", key }); return; }
-                    obj.ref(true);
-                    if (background) backgroundClips.add(obj.handle.toString());
-                    made = obj;
-                    assetCache.set(cacheKey, made);
-                    log({ t: "asset-made", key, kind: req.kind, background, ms: Date.now() - started });
-                }
+                if (!made || made.isNull()) { log({ t: "asset-fail", key }); return; }
                 ret.replace(made.handle);
                 if (req.kind === "music") setBattleAudioLength(made.method<number>("get_length").invoke());
             });

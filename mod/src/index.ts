@@ -16,6 +16,8 @@ import { installAutoPlay } from "./autoplay.js";
 import { installAllPerfect } from "./allPerfect.js";
 import { installBga } from "./bga.js";
 import { installFever } from "./fever.js";
+import { installChristmas } from "./christmas.js";
+import { installSpineSkin } from "./spineSkin.js";
 import { restoreCache } from "./cacheRestore.js";
 import { installRecords } from "./records.js";
 import { installWatchdog } from "./watchdog.js";
@@ -64,6 +66,8 @@ whenIl2CppLoaded(() => Il2Cpp.perform(() => {
     guard("all-perfect", installAllPerfect);
     guard("bga", installBga);
     guard("fever", installFever);
+    guard("christmas", installChristmas);
+    guard("spine-skin", installSpineSkin);
     guard("records", installRecords);
     guard("watchdog", installWatchdog);
 }, "free"));

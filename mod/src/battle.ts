@@ -12,9 +12,8 @@ import { lastCounts } from "./chart/inject.js";
 import { battleDifficulty } from "./hwa/difficulty.js";
 import { chartForDifficulty } from "./hwa/library.js";
 import { onFrame } from "./frame.js";
+import { christmasBoss, christmasReason } from "./christmas.js";
 
-// 보스 정보가 BMS에 없을 때 PC 모드가 쓰던 기본 보스 (BossRewriteRules)
-const FALLBACK_BOSS = { name: "0701_boss", scene: 7 };
 const BOSS = { curBossObject: 0x18, bossObjects: 0x20 };
 // SpineActionController.m_MusicData(struct) 0xF0 + MusicData.dt 0x138 / showTick 0x14C
 const SPINE_MUSIC_DATA = 0xF0, MD_DT = 0x138, MD_SHOW_TICK = 0x14C;
@@ -62,11 +61,14 @@ function installBoss(): void {
             if (!song) return;
             guard("boss-init", () => {
                 const boss = new Il2Cpp.Object(args[0]);
-                const from = { name: readIl2CppString(args[1]), scene: args[2].toInt32() };
+                const from = { name: readIl2CppString(args[1]) ?? "", scene: args[2].toInt32() };
                 const chart = chartForDifficulty(song, battleDifficulty());
                 const first = firstBmsBoss(chart);
+                // 크리스마스 곡(info.txt '크리스마스 배경')이면 5번 보스를 크리스마스 보스로 (PC d810e4d)
+                const xmas = christmasReason();
                 if (first) {
-                    for (const t of bmsSwapTargets(chart)) {
+                    for (const target of bmsSwapTargets(chart)) {
+                        const t = christmasBoss(target.name, target.scene, xmas !== null);
                         if (hasBossScene(boss, t.scene)) continue;   // 이번 배틀 보스 표에 이미 있으면 건너뜀
                         dynamicSwap = true;
                         try {
@@ -79,10 +81,18 @@ function installBoss(): void {
                         }
                     }
                 }
-                const to = first ?? FALLBACK_BOSS;
+                // BMS에 보스가 없으면 숙주 씬이 부른 보스를 그대로 둔다. PC는 예전엔 0701로 바꿨지만 지금은 규칙이 비었다(d810e4d).
+                // 크리스마스 곡이면 고른 보스가 5번일 때 크리스마스 보스로. PC는 숙주 보스가 5번일 때만 BMS 보스까지 바꾸지만,
+                // 여기선 숙주와 상관없이 고른 보스 기준으로 본다(5번 BMS 보스가 숙주 씬 때문에 크리스마스 판을 놓치지 않게).
+                const picked = first ?? from;
+                const to = christmasBoss(picked.name, picked.scene, xmas !== null);
+                if (to.name === from.name && to.scene === from.scene) {
+                    log({ t: "boss-init", song: song.name, from, to, source: first ? "bms" : "host", christmas: xmas });
+                    return;
+                }
                 args[1] = pinnedString(to.name);
                 args[2] = ptr(to.scene);
-                log({ t: "boss-init", song: song.name, from, to, source: first ? "bms" : "fallback" });
+                log({ t: "boss-init", song: song.name, from, to, source: first ? "bms" : "host", christmas: xmas });
             });
         }
     });
@@ -94,25 +104,37 @@ function installBoss(): void {
             if (!key || !key.startsWith("swap:") || !battleSong()) return;
             guard("boss-swap", () => {
                 const parts = key.split(":");
-                const scene = parseInt(parts[2] ?? "", 10);
-                if (parts.length < 3 || isNaN(scene)) {
+                const rawScene = parseInt(parts[2] ?? "", 10);
+                if (parts.length < 3 || isNaN(rawScene)) {
                     log({ t: "boss-swap-bad-key", key });
                     return;
                 }
+                const { name, scene } = christmasBoss(parts[1], rawScene, christmasReason() !== null);
                 const boss = new Il2Cpp.Object(args[0]);
                 setActive(curBossObject(boss));      // out으로 꺼진 보스를 깨운다
                 dynamicSwap = true;
                 try {
-                    boss.method("InitBossObject", 3).invoke(Il2Cpp.string(parts[1]), scene, true);
+                    boss.method("InitBossObject", 3).invoke(Il2Cpp.string(name), scene, true);
                 } finally {
                     dynamicSwap = false;
                 }
                 setActive(curBossObject(boss));      // 새 보스 오브젝트도 깨운다
                 args[1] = pinnedString("in");
-                log({ t: "boss-swap", name: parts[1], scene });
+                log({ t: "boss-swap", name, scene });
             });
         }
     });
+
+    // 씬 전환 시 보스 교체 방지: 커스텀 곡일 때는 배경만 바뀌고 현재 보스를 끄거나 교체하지 않음 (PC Boss_SceneBossChange_Patch)
+    const sceneBossChange = Boss.method("SceneBossChange", 1).virtualAddress;
+    const sceneBossChangeOriginal = new NativeFunction(sceneBossChange, "void", ["pointer", "int", "pointer"]);
+    Interceptor.replace(sceneBossChange, new NativeCallback((self: NativePointer, idx: number, method: NativePointer) => {
+        if (battleSong() && !dynamicSwap) {
+            log({ t: "boss-scene-change-skip", idx });
+            return;
+        }
+        sceneBossChangeOriginal(self, idx, method);
+    }, "void", ["pointer", "int", "pointer"]));
 }
 
 function installScene(): void {

@@ -158,6 +158,11 @@ type DtFamily = "none" | "normal" | "hold" | "bossProjectile" | "fixedEvent";
 const NORMAL_DT = [1.48, 1.28, 1.18];
 const HOLD_DT = [1.47, 1.26, 1.10];
 const BOSS_PROJECTILE_DT = [0.8, 0.76, 0.6];
+// 5번 씬 발사체2·3(0507yy·0508yy)만 비행 애니메이션이 7~8프레임 길다(PC 984fff5, 게임 번들 프리팹 전수 조사):
+// 다른 씬 in_boss_2_23/20/17 → 5번 씬 in_boss_2_31/28/24 (속도 1/2/3). 위 표에 그 차이(1프레임 = 1/30초)를 더한 값.
+// 속도 1의 1.07은 PC summertime에서 실기 확인, 2·3은 계산값. 0.8을 쓰면 판정이 노트보다 약 0.27초 먼저 온다.
+const SCENE05_PROJECTILE_DT = [1.07, 1.03, 0.83];
+const isScene05LongProjectile = (uid: string) => uid.startsWith("0507") || uid.startsWith("0508");
 
 function classifyDt(uid: string, noteType: number, bossAction: string): DtFamily {
     if (uid.startsWith("0004") || noteType === NoteTypes.SceneToggle) return "fixedEvent";
@@ -173,9 +178,10 @@ function classifyDt(uid: string, noteType: number, bossAction: string): DtFamily
     return "normal";
 }
 
-function recommendedDt(family: DtFamily, speed: number): number | null {
+function recommendedDt(family: DtFamily, speed: number, uid: string): number | null {
     if (family === "fixedEvent") return 0;
-    const table = family === "normal" ? NORMAL_DT : family === "hold" ? HOLD_DT : family === "bossProjectile" ? BOSS_PROJECTILE_DT : null;
+    const projectile = isScene05LongProjectile(uid) ? SCENE05_PROJECTILE_DT : BOSS_PROJECTILE_DT;
+    const table = family === "normal" ? NORMAL_DT : family === "hold" ? HOLD_DT : family === "bossProjectile" ? projectile : null;
     if (!table || speed < 1 || speed > 3) return null;
     return table[speed - 1];
 }
@@ -185,7 +191,7 @@ function applyDtTable(specs: NoteSpec[], fix: boolean): number {
     if (!fix) return 0;
     let changed = 0;
     for (const s of specs) {
-        const rec = recommendedDt(classifyDt(s.uid, s.noteType, s.bossAction), UidCode.speed(s.uid));
+        const rec = recommendedDt(classifyDt(s.uid, s.noteType, s.bossAction), UidCode.speed(s.uid), s.uid);
         if (rec === null) continue;
         if (Math.abs(s.dt - rec) > 0.0005) changed++;
         s.dt = rec;

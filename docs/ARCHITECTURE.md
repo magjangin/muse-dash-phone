@@ -46,6 +46,20 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `hpText.ts` | `HpMod/ChangeHealthValuePatch.cs`, `HywTextStyler.cs` | 커스텀 곡 체력바 글자 "made in 화영왕" |
 | `safety.ts` | (Android 전용) | 서버 업로드 차단 |
 | `spine/` (`index`·`build`·`files`·`actions`) | `Spine/CustomSkinInjector.cs`, `NoteSkinInjector.cs`, `NoteSkinRules.cs` | 커스텀 Spine 스킨 |
+| `records.ts` | `CustomRecordStore.cs`, `PlayRecordMerge.cs`, `CustomRecordUiPatchHelper.cs` | 커스텀 곡 최고 기록(`files/record/<곡 폴더>_<난이도>.json`)과 준비·승리 화면 표시 |
+| `autoplay.ts` | `AutoPlayPatch.cs` | info.txt·config의 오토플레이 |
+| `allPerfect.ts` | `APModPatch.cs`, `ForcePerfectPatch.cs` | 강제 퍼펙트, 승리 화면 "ALL PERFECT !" 배너 |
+| `fever.ts` | `ChangeFeverValuePatch.cs` | 피버 충전 막기 |
+| `christmas.ts` | `Patches/Scene/ChristmasFestivalPatch.cs` | 크리스마스 배경·보스 (곡 info.txt 또는 config) |
+| `bga.ts` | `HwaBattleMediaController.cs` | 곡 폴더 mp4를 Android MediaPlayer + TextureView로 재생 (Unity VideoModule이 스트리핑됨) |
+| `config.ts` | `InputOverlay.Config.cs` | `config.txt` 전역 설정, 1초마다 다시 읽기 |
+| `cacheRestore.ts` | (Android 전용) | 아카이브의 patch OBB(tar)를 `files/`에 풀어 DLC 에셋 캐시 복원 |
+| `index.ts` | — | 진입점: 캐시 복원·곡 가져오기(Unity 전) → `libil2cpp.so` 폴링 → `Il2Cpp.perform(..., "free")`에서 모듈 설치 |
+| `frame.ts` | — | 매 프레임 콜백 (`UnityGameManager.LoopUpdate` 0x1E62D24) |
+| `perf.ts` | (PC 9ee7036 계측 대응) | `frame-hitch`·`audio-update` 렉 로그, 모듈이 남기는 `perfMark` |
+| `watchdog.ts` | (Android 전용) | 프레임이 오래 끊기면 모든 스레드 위치를 `mod.log`에 남김 |
+| `log.ts` | — | `files/mod.log` 한 줄 JSON 로그 (script 모드는 logcat에 안 나옴) |
+| `native.ts` | — | Decimal 읽기·쓰기, libc 디렉터리·파일 검사, 고정 Il2Cpp 문자열, µs 시계 `nowUs` |
 | `il2cpp.ts` | — | 클래스 찾기·바이트 배열·Color/Vector2 공용 헬퍼 |
 
 ## 주요 훅
@@ -68,6 +82,7 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `TaskStageTarget::GetTrueAccuracy(New)` | 0x205BBC4 / 0x205B79C | 커스텀 곡 정확도 공식 (replace) |
 | `StageBattleComponent::GetTimeProgress`, `PnlBattle::<MusicProgressInit>b__48_1` | 0x1D5F4A8 / — | 진행률 (replace) |
 | `UnityGameManager::LoopUpdate` | 0x1E62D24 | 프레임 콜백 |
+| `ChangeHealthValue::OnGameStart` / `OnHpRateChange` | 0x1BA4B74 / 0x1BA4EC0 | 이탈 후 체력바 `text`(+0x18)를 "made in 화영왕"으로. 체력 글자를 쓰는 곳은 `OnHpRateChange`뿐이고, 배틀마다 2개(하나는 text가 null)라 두 번씩 불린다 |
 | `StatisticsManager::UploadScore` / `GameAccountSystem::Synchronize` | 0x1ED32E8 / 0x22F5D78 | 빈 함수로 (replace) |
 
 ## 데이터 레이아웃 (이 빌드)

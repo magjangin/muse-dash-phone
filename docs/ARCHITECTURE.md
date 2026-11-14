@@ -43,9 +43,10 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `ghost.ts` | 고스트 노트 보이기 | Spine 타임라인 알파 |
 | `hitpoints.ts` | `ExperimentHitPointInstaller.cs` | 씬을 바꾼 뒤 빠지는 판정 과녁 고리 복구 |
 | `progress.ts` | `ProgressBarPatch.cs`, `HwaSyncManager` | 진행바 = 게임 시계 / 곡 길이 |
+| `hpText.ts` | `HpMod/ChangeHealthValuePatch.cs`, `HywTextStyler.cs` | 커스텀 곡 체력바 글자 "made in 화영왕" |
 | `safety.ts` | (Android 전용) | 서버 업로드 차단 |
 | `spine/` (`index`·`build`·`files`·`actions`) | `Spine/CustomSkinInjector.cs`, `NoteSkinInjector.cs`, `NoteSkinRules.cs` | 커스텀 Spine 스킨 |
-| `il2cpp.ts` | — | 클래스 찾기·바이트 배열 공용 헬퍼 |
+| `il2cpp.ts` | — | 클래스 찾기·바이트 배열·Color/Vector2 공용 헬퍼 |
 
 ## 주요 훅
 

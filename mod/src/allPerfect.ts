@@ -3,7 +3,7 @@
 // 2. PnlVictory2dManager.ShowFullCombo (0x1C806E0) & OnShowVictory (0x1C808E0) 훅으로 클리어 시 "ALL PERFECT !" 황금 배너 표시.
 import { log } from "./log.js";
 import { stopBga } from "./bga.js";
-import { gameClass } from "./il2cpp.js";
+import { gameClass, makeColor, makeVector2 } from "./il2cpp.js";
 
 const RVA = {
     TouchResult: 0x1D4D0D4,         // GameTouchPlay.TouchResult(int idx, byte resultCode, uint actionType, TimeNodeOrder tno, bool isSkill, bool isElfinSkill)
@@ -16,24 +16,6 @@ let forcePerfectEnabled = true;
 export function setForcePerfect(enable: boolean): void {
     forcePerfectEnabled = enable;
     log({ t: "force-perfect-toggle", enable });
-}
-
-function makeColor(r: number, g: number, b: number, a: number): Il2Cpp.ValueType {
-    const ColorClass = Il2Cpp.domain.assembly("UnityEngine.CoreModule").image.class("UnityEngine.Color");
-    const color = ColorClass.alloc().unbox();
-    color.field<number>("r").value = r;
-    color.field<number>("g").value = g;
-    color.field<number>("b").value = b;
-    color.field<number>("a").value = a;
-    return color;
-}
-
-function makeVector2(x: number, y: number): Il2Cpp.ValueType {
-    const Vector2Class = Il2Cpp.domain.assembly("UnityEngine.CoreModule").image.class("UnityEngine.Vector2");
-    const v = Vector2Class.alloc().unbox();
-    v.field<number>("x").value = x;
-    v.field<number>("y").value = y;
-    return v;
 }
 
 function resolveFont(): Il2Cpp.Object | null {

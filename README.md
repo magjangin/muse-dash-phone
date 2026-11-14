@@ -23,6 +23,7 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 - **정확도 & 진행바 동기화** — 커스텀 곡 실제 노트 수 기준 정확도 산출, 곡 길이 기준 실시간 진행바 동기화.
 - **커스텀 곡 최고 기록** — 곡·난이도별 최고 점수·등급·콤보·정확도·클리어 수를 `files/record/`에 따로 저장해 준비 화면과 승리 화면에 표시합니다(게임 세이브는 건드리지 않음, 자동 연주는 기록하지 않음).
 - **크리스마스 배경·보스** — 곡 `hwa info.txt`에 `크리스마스 배경 = 활성화`를 쓰면 5번 씬이 날짜와 상관없이 크리스마스 판(`scene_05_christmas`)과 크리스마스 보스로 바뀝니다. 공식 곡까지 바꾸려면 설정의 `강제크리스마스`.
+- **체력바 글자** — 커스텀 곡 배틀에서는 체력바의 `250/250` 자리에 `made in 화영왕`이 표시됩니다(공식 곡은 그대로).
 - **커스텀 Spine 스킨** — `files/skin test/character/`(캐릭터·고스트, 모든 곡)와 `files/skin test/note/`(노트, 크리스마스 곡만)에 Spine 3.8 JSON 세트(`이름.json`·`.atlas`·`.png`)를 넣으면 배틀에서 씌웁니다. 아래 "커스텀 스킨 넣기" 참고.
 - **전역 설정 시스템 (`save custom key/config.txt`)** — 게임을 끄지 않고도 텍스트 파일 수정으로 오토, 올퍼펙트, 피버 등을 실시간 온/오프 가능 (핫리로드).
 - **안전장치** — 점수 업로드 및 클라우드 세이브 요청을 완벽 차단하여 계정 정지 위험을 방지합니다.
@@ -247,6 +248,7 @@ mod/                 TypeScript 모드 소스 (npm run build → dist/mod.js)
   src/ghost.ts       고스트 노트 알파 보정
   src/hitpoints.ts   판정 과녁 고리 씬 복원기
   src/progress.ts    진행바 동기화
+  src/hpText.ts      체력바 글자 "made in 화영왕" (커스텀 곡)
   src/safety.ts      온라인 차단 및 세이브 안전장치
   src/christmas.ts   크리스마스 배경·보스 (곡 옵션, 강제크리스마스)
   src/spine/         커스텀 Spine 스킨 (캐릭터·노트: 파일 검사, 에셋 만들기, 훅)

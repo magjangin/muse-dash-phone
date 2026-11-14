@@ -36,7 +36,25 @@ export function requireClass(name: string): Il2Cpp.Class {
     return k;
 }
 
-export const isNull = (p: NativePointer | null | undefined): boolean => !p || p.isNull();
+/** UnityEngine.Color 값. ValueType은 `.new()`가 아니라 `alloc().unbox()`로 만든다(인자 없는 new는 필드 수 오류). */
+export function makeColor(r: number, g: number, b: number, a: number): Il2Cpp.ValueType {
+    const color = unityClass("UnityEngine.CoreModule", "UnityEngine.Color").alloc().unbox();
+    color.field<number>("r").value = r;
+    color.field<number>("g").value = g;
+    color.field<number>("b").value = b;
+    color.field<number>("a").value = a;
+    return color;
+}
+
+/** UnityEngine.Vector2 값. */
+export function makeVector2(x: number, y: number): Il2Cpp.ValueType {
+    const v = unityClass("UnityEngine.CoreModule", "UnityEngine.Vector2").alloc().unbox();
+    v.field<number>("x").value = x;
+    v.field<number>("y").value = y;
+    return v;
+}
+
+export const isNull =(p: NativePointer | null | undefined): boolean => !p || p.isNull();
 
 /** 파일 바이트 → System.Byte[] (ImageConversion.LoadImage 인자용). */
 export function byteArrayFromFile(path: string): Il2Cpp.Array<number> {

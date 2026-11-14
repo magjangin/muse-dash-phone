@@ -64,6 +64,17 @@ export function makeDir(path: string): number {
     return mkdirNative(Memory.allocUtf8String(path), 0o777) as number;
 }
 
+// ---- 시간 (Date.now는 ms 단위라 1 ms 미만 훅 비용을 못 잰다) ----
+const clockGettime = new NativeFunction(libc.getExportByName("clock_gettime"), "int", ["int", "pointer"]);
+const timespec = Memory.alloc(16);   // struct timespec { int64 tv_sec; int64 tv_nsec; } (arm64)
+const CLOCK_MONOTONIC = 1;
+
+/** 단조 시계(마이크로초). 구간 비용을 잴 때 두 값의 차이만 쓴다. */
+export function nowUs(): number {
+    clockGettime(CLOCK_MONOTONIC, timespec);
+    return timespec.readS64().toNumber() * 1e6 + Math.floor(timespec.add(8).readS64().toNumber() / 1000);
+}
+
 const DT_DIR = 4;
 
 export interface DirEntry { name: string; isDir: boolean; }

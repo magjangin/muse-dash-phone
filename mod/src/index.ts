@@ -12,6 +12,7 @@ import { installBattle } from "./battle/index.js";
 import { installGhost } from "./ghost.js";
 import { installHitPoints } from "./hitpoints.js";
 import { installProgress } from "./progress.js";
+import { installHpText } from "./hpText.js";
 import { installAutoPlay } from "./autoplay.js";
 import { installAllPerfect } from "./allPerfect.js";
 import { installBga } from "./bga.js";
@@ -63,6 +64,7 @@ whenIl2CppLoaded(() => Il2Cpp.perform(() => {
     guard("ghost", installGhost);
     guard("hitpoints", installHitPoints);
     guard("progress", installProgress);
+    guard("hp-text", installHpText);
     guard("autoplay", installAutoPlay);
     guard("all-perfect", installAllPerfect);
     guard("bga", installBga);

@@ -6,6 +6,7 @@
 import { log } from "./log.js";
 import { battleSerial, battleSong } from "./customChart.js";
 import { onFrame } from "./frame.js";
+import { findClass } from "./il2cpp.js";
 
 const RETRY_MS = 500;
 const MAX_ATTEMPTS = 40;
@@ -19,7 +20,36 @@ function hitPointScene(name: string | null): number | null {
     return m ? parseInt(m[1], 10) : null;
 }
 
+const nameOf = (o: Il2Cpp.Object): string => o.method<Il2Cpp.String>("get_name").invoke().content ?? "";
+
+// 원본 프리팹(씬에 없는 비활성 에셋) HitPoints_<씬>을 찾는다.
+// 예전엔 FindObjectsOfTypeAll(GameObject)로 모든 GameObject(약 11,500개) 이름을 bridge로 하나씩 읽어
+// 배틀 첫 프레임이 650 ms 멈췄다(레디 고! 렉, 2026-11-14 실측). 고리 프리팹에 붙은 HitPointSubControl만 모아
+// 부모를 따라 올라가며 이름을 본다. 못 찾으면(컴포넌트가 없는 씬) 예전 전체 검색으로 돌아간다.
+function findPrefab(prefabName: string, GameObject: Il2Cpp.Class): { go: Il2Cpp.Object | null; stats: object } {
+    const resources = core().class("UnityEngine.Resources").method<Il2Cpp.Array<Il2Cpp.Object>>("FindObjectsOfTypeAll", 1);
+    const ctl = findClass("Assets.Scripts.UI.GameMain.HitPointSubControl");
+    if (ctl) {
+        const comps = resources.invoke(ctl.type.object);
+        for (let i = 0; i < comps.length; i++) {
+            let tr: Il2Cpp.Object | null = comps.get(i).method<Il2Cpp.Object>("get_transform").invoke();
+            for (let depth = 0; depth < 8 && tr && !tr.isNull(); depth++) {
+                const go = tr.method<Il2Cpp.Object>("get_gameObject").invoke();
+                if (nameOf(go) === prefabName) return { go, stats: { how: "subcontrol", objects: comps.length, found: true } };
+                tr = tr.method<Il2Cpp.Object>("get_parent").invoke();
+            }
+        }
+    }
+    const all = resources.invoke(GameObject.type.object);
+    for (let i = 0; i < all.length; i++) {
+        const o = all.get(i);
+        if (nameOf(o) === prefabName) return { go: o, stats: { how: "all", objects: all.length, found: true } };
+    }
+    return { go: null, stats: { how: "all", objects: all.length, found: false } };
+}
+
 function tryInstall(scene: number): boolean {
+    const t0 = Date.now();
     const GameObject = core().class("UnityEngine.GameObject");
     const soc = GameObject.method<Il2Cpp.Object>("Find", 1).invoke(Il2Cpp.string("SceneObjectController"));
     if (!soc || soc.isNull()) return false;
@@ -35,16 +65,10 @@ function tryInstall(scene: number): boolean {
     }
     let source = "existing";
     if (!active) {
-        // 원본 프리팹(씬에 없는 비활성 에셋)을 찾는다
-        const all = core().class("UnityEngine.Resources").method<Il2Cpp.Array<Il2Cpp.Object>>("FindObjectsOfTypeAll", 1)
-            .invoke(GameObject.type.object);
-        let prefab: Il2Cpp.Object | null = null;
-        for (let i = 0; i < all.length; i++) {
-            const o = all.get(i);
-            if (o.method<Il2Cpp.String>("get_name").invoke().content === prefabName) { prefab = o; break; }
-        }
-        if (!prefab) return false;
-        active = core().class("UnityEngine.Object").method<Il2Cpp.Object>("Instantiate", 1).overload("UnityEngine.Object").invoke(prefab);
+        const prefab = findPrefab(prefabName, GameObject);
+        log({ t: "hitpoints-scan", ms: Date.now() - t0, ...prefab.stats });
+        if (!prefab.go) return false;
+        active = core().class("UnityEngine.Object").method<Il2Cpp.Object>("Instantiate", 1).overload("UnityEngine.Object").invoke(prefab.go);
         active.method("set_name").invoke(Il2Cpp.string(cloneName));
         active.method<Il2Cpp.Object>("get_transform").invoke().method("SetParent", 2).invoke(parent, false);
         active.method("SetActive").invoke(true);
@@ -60,7 +84,7 @@ function tryInstall(scene: number): boolean {
             removed++;
         }
     }
-    log({ t: "hitpoints", scene, source, removed });
+    log({ t: "hitpoints", scene, source, removed, ms: Date.now() - t0 });
     return true;
 }
 

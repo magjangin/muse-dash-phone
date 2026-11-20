@@ -5,14 +5,18 @@ import { log } from "../log.js";
 import { byteArrayFromFile, gameClass, isNull, requireClass, unityClass } from "../il2cpp.js";
 import { atlasTextureName, checkSetFiles, readTextFile } from "./files.js";
 
-const HIDE_DONT_UNLOAD = 32;   // HideFlags.DontUnloadUnusedAsset: 씬 전환의 UnloadUnusedAssets에 안 지워지게
 
 let K: ReturnType<typeof loadClasses> | null = null;
 function loadClasses() {
     const core = (n: string) => unityClass("UnityEngine.CoreModule", n);
     const sda = requireClass("Spine.Unity.SkeletonDataAsset");
     const atlas = requireClass("Spine.Unity.SpineAtlasAsset");
+    const unityObject = unityClass("UnityEngine.CoreModule", "UnityEngine.Object");
     return {
+        // HideFlags.DontUnloadUnusedAsset: 씬 전환의 Resources.UnloadUnusedAssets에 안 지워지게.
+        // enum 인자는 숫자(32)가 아니라 enum 값(ValueType)으로 넘긴다(audio/clips.ts keepNative와 같음).
+        dontUnload: unityClass("UnityEngine.CoreModule", "UnityEngine.HideFlags").field<Il2Cpp.ValueType>("DontUnloadUnusedAsset").value,
+        opImplicit: unityObject.method<boolean>("op_Implicit", 1),
         texture2D: core("UnityEngine.Texture2D"),
         textAsset: core("UnityEngine.TextAsset"),
         shader: core("UnityEngine.Shader"),
@@ -69,10 +73,75 @@ function describeException(p: NativePointer): string {
     }
 }
 
+// 2026-11-20 실측: 전에는 set_hideFlags에 숫자 32를 넘기고 실패를 catch로 삼켰고, 아틀라스가 만든 머티리얼은 표시하지 않았다.
+// 캐시한 캐릭터 에셋이 첫 판엔 보였지만 메뉴로 나갔다 들어온 판부터 린이 안 보였다(그림자만 남음).
+let keepWarned = false;
 function keep(o: Il2Cpp.Object): Il2Cpp.Object {
     o.ref(true);
-    try { o.method("set_hideFlags").invoke(HIDE_DONT_UNLOAD); } catch (_) { /* hideFlags가 없는 객체 */ }
+    try {
+        o.method("set_hideFlags", 1).invoke(classes().dontUnload);
+    } catch (e) {
+        if (!keepWarned) { keepWarned = true; log({ t: "skin-keep-error", cls: o.class.name, error: `${e}` }); }
+    }
     return o;
+}
+
+/** UnityEngine.Object가 살아 있는지(네이티브 쪽이 지워지면 C# 래퍼만 남아 op_Implicit가 false). */
+export function alive(o: Il2Cpp.Object | null | undefined): o is Il2Cpp.Object {
+    return !!o && !o.isNull() && classes().opImplicit.invoke(o);
+}
+
+function atlasMaterials(atlasAsset: Il2Cpp.Object): Il2Cpp.Object[] {
+    const mats = atlasAsset.tryField<Il2Cpp.Array<Il2Cpp.Object>>("materials")?.value;
+    const out: Il2Cpp.Object[] = [];
+    if (mats && !mats.isNull()) for (let i = 0; i < mats.length; i++) out.push(mats.get(i));
+    return out;
+}
+
+/** 우리가 만든 스킨 에셋에서 지워진 부분의 이름. 다 살아 있으면 null. 캐시를 다시 쓰기 전에 본다. */
+export function deadPart(sda: Il2Cpp.Object): string | null {
+    try {
+        if (!alive(sda)) return "skeletonDataAsset";
+        const atlases = sda.field<Il2Cpp.Array<Il2Cpp.Object>>("atlasAssets").value;
+        if (!atlases || atlases.isNull() || atlases.length === 0) return "atlasAssets";
+        const atlas = atlases.get(0);
+        if (!alive(atlas)) return "atlasAsset";
+        const mats = atlasMaterials(atlas);
+        if (mats.length === 0) return "materials";
+        for (const m of mats) {
+            if (!alive(m)) return "material";
+            if (!alive(m.method<Il2Cpp.Object>("get_mainTexture").invoke())) return "texture";
+        }
+        return null;
+    } catch (e) {
+        return `check-error:${e}`;
+    }
+}
+
+/**
+ * 캐시한 스킨 에셋의 머티리얼 셰이더를 이번 판 원본 머티리얼에 맞춘다. 바꿨으면 true.
+ * 2026-11-20 실측: 원본 머티리얼의 셰이더(Spine/Skeleton Tint)는 배틀 에셋 번들 것이라, 메뉴로 나가면 번들과 함께 내려간다.
+ * 우리 머티리얼·텍스처는 살아 있지만 셰이더가 Hidden/InternalErrorShader(renderQueue 2000)로 바뀌어 린이 안 그려졌다
+ * (첫 판 정상, 메뉴를 거친 판부터 그림자만). 같은 씬 '처음부터'는 번들을 안 내려서 멀쩡했다.
+ */
+export function syncShader(sda: Il2Cpp.Object, originalAsset: Il2Cpp.Object | null): boolean {
+    const template = materialOf(originalAsset);
+    if (!template) return false;
+    const shader = template.method<Il2Cpp.Object>("get_shader").invoke();
+    if (!alive(shader)) return false;
+    const atlases = sda.field<Il2Cpp.Array<Il2Cpp.Object>>("atlasAssets").value;
+    if (!atlases || atlases.isNull() || atlases.length === 0) return false;
+    let changed = false;
+    for (const m of atlasMaterials(atlases.get(0))) {
+        if (!alive(m)) continue;
+        const cur = m.method<Il2Cpp.Object>("get_shader").invoke();
+        if (cur && !cur.isNull() && cur.handle.equals(shader.handle)) continue;
+        m.method("set_shader", 1).invoke(shader);
+        m.method("set_shaderKeywords", 1).invoke(template.method<Il2Cpp.Object>("get_shaderKeywords").invoke());
+        m.method("set_renderQueue", 1).invoke(template.method<number>("get_renderQueue").invoke());
+        changed = true;
+    }
+    return changed;
 }
 
 /** 원본 스켈레톤의 첫 머티리얼 (atlasAssets[0].materials[0]). 새 아틀라스 머티리얼의 본으로 쓴다. */
@@ -169,6 +238,7 @@ export function buildAsset(label: string, dir: string, base: string, scale: numb
         atlasPtr = atlasObj ? atlasObj.handle : NULL;
         if (isNull(atlasPtr)) { log({ t: "skin-atlas-fail", label }); return null; }
         const atlasAsset = keep(atlasObj);
+        for (const m of atlasMaterials(atlasAsset)) keep(m);   // 아틀라스가 만든 머티리얼도 씬 전환에 안 지워지게
 
         // scale은 float 값 인자라 브리지로 직접 부른다(safeInvoke로 넘기면 0이 들어가 메시가 한 점으로 모였다).
         const sdaObj = k.sdaCreate.invoke(jsonTA, atlasAsset, true, scale) as Il2Cpp.Object;

@@ -25,7 +25,8 @@ import { christmasReason } from "../christmas.js";
 import { battleSerial } from "../customChart.js";
 import { currentConfig } from "../config.js";
 import { SKIN_ROOT, baseNameFromAssetName, setDir, setStamp } from "./files.js";
-import { buildAsset, classes, materialOf, safeInvoke } from "./build.js";
+import { alive, buildAsset, classes, deadPart, materialOf, safeInvoke, syncShader } from "./build.js";
+import { onFrame } from "../frame.js";
 import { requiredAnimations } from "./actions.js";
 
 // GameObject 이름 → 캐릭터 세트 (PC InjectHelper.TargetToBaseName). 그림자는 대상에서 뺀다(PC와 같음).
@@ -41,7 +42,7 @@ const HALF_IMPORT_FACTOR = 2;
 const REVALIDATE_MS = 2000;
 
 // ---- 캐시 ----
-interface SetEntry { asset: Il2Cpp.Object | null; stamp: number; failed: boolean; checkedAt: number; }
+interface SetEntry { asset: Il2Cpp.Object | null; stamp: number; failed: boolean; checkedAt: number; serial: number; }
 const characterSets = new Map<string, Il2Cpp.Object | null>();
 const noteSets = new Map<string, SetEntry>();
 const ownAssets = new Set<string>();
@@ -59,7 +60,18 @@ function characterAsset(base: string, original: Il2Cpp.Object | null): Il2Cpp.Ob
     // 키에 원본 머티리얼을 넣는다: 처음엔 세트 이름만 키로 써서 먼저 Init된 고스트의 머티리얼(Unlit/Ghost)로 만든 에셋을
     // 본체 린에도 씌웠고, 본체가 화면에서 사라졌다(2026-11-13 실측).
     const key = `${base}|${materialKey(original)}`;
-    if (characterSets.has(key)) return characterSets.get(key)!;
+    if (characterSets.has(key)) {
+        const cached = characterSets.get(key)!;
+        // 씬 전환에 에셋 일부가 지워졌으면 다시 만든다(지워진 에셋을 씌우면 캐릭터가 안 보인다).
+        const dead = cached ? deadPart(cached) : null;
+        if (!dead) {
+            if (cached && syncShader(cached, original)) log({ t: "skin-shader-resync", label: `character:${key}`, serial: battleSerial() });
+            return cached;
+        }
+        log({ t: "skin-asset-dead", label: `character:${key}`, part: dead });
+        ownAssets.delete(cached!.handle.toString());
+        characterSets.delete(key);
+    }
     const dir = setDir("character", base);
     const asset = setStamp(dir, base) === 0 ? null : buildAsset(`character:${key}`, dir, base, CHARACTER_SCALE, original);
     if (asset) { ownAssets.add(asset.handle.toString()); }
@@ -71,11 +83,24 @@ function characterAsset(base: string, original: Il2Cpp.Object | null): Il2Cpp.Ob
 function noteAsset(base: string, scale: number, original: Il2Cpp.Object): Il2Cpp.Object | null {
     const key = `${base}|${scale}|${materialKey(original)}`;
     const now = Date.now();
-    const entry = noteSets.get(key);
+    const serial = battleSerial();
+    let entry = noteSets.get(key);
+    // 생존 확인은 판이 바뀌었을 때와 재검사 때만(Init은 노트 수만큼 불린다).
+    if (entry?.asset && (entry.serial !== serial || now - entry.checkedAt >= REVALIDATE_MS)) {
+        entry.serial = serial;
+        const dead = deadPart(entry.asset);
+        if (!dead && syncShader(entry.asset, original)) log({ t: "skin-shader-resync", label: `note:${key}`, serial });
+        if (dead) {
+            log({ t: "skin-asset-dead", label: `note:${key}`, part: dead });
+            ownAssets.delete(entry.asset.handle.toString());
+            noteSets.delete(key);
+            entry = undefined;
+        }
+    }
     if (entry && now - entry.checkedAt < REVALIDATE_MS) return entry.asset;
     const dir = setDir("note", base);
     const stamp = setStamp(dir, base);
-    if (entry && entry.stamp === stamp) { entry.checkedAt = now; return entry.asset; }
+    if (entry && entry.stamp === stamp) { entry.checkedAt = now; entry.serial = serial; return entry.asset; }
     // 파일이 바뀌었다 → 다시 만든다(옛 에셋은 이미 씌운 노트가 쓰고 있을 수 있어 지우지 않는다).
     contractVerdicts.clear();
     warnedContracts.clear();
@@ -84,7 +109,7 @@ function noteAsset(base: string, scale: number, original: Il2Cpp.Object): Il2Cpp
         asset = buildAsset(`note:${base}`, dir, base, scale, original);
         if (asset) { ownAssets.add(asset.handle.toString()); }
     }
-    noteSets.set(key, { asset, stamp, failed: stamp !== 0 && asset === null, checkedAt: now });
+    noteSets.set(key, { asset, stamp, failed: stamp !== 0 && asset === null, checkedAt: now, serial });
     return asset;
 }
 
@@ -137,6 +162,63 @@ function swapAsset(sac: Il2Cpp.Object, ska: Il2Cpp.Object, asset: Il2Cpp.Object,
 
 const seenOtherCharacters = new Set<string>();
 
+// 진단: 캐릭터에 씌운 뒤 3초 지나 렌더러 상태를 한 번 남긴다(판마다 캐릭터 2개).
+const watched: { ska: Il2Cpp.Object; asset: Il2Cpp.Object; name: string; at: number; serial: number }[] = [];
+function f32(p: NativePointer): number { return Math.round(p.readFloat() * 1000) / 1000; }
+function characterState(w: typeof watched[number]): Record<string, unknown> {
+    const st: Record<string, unknown> = { object: w.name, serial: w.serial };
+    if (!alive(w.ska)) { st.ska = "dead"; return st; }
+    st.assetSame = currentAsset(w.ska)?.handle.equals(w.asset.handle) ?? false;
+    const ours = (w.asset.method<Il2Cpp.Object>("GetSkeletonData", 1).invoke(true) as Il2Cpp.Object).handle;
+    const skel = w.ska.handle.add(0xC0).readPointer();
+    st.dataSame = !skel.isNull() && skel.add(0x10).readPointer().equals(ours);
+    st.valid = w.ska.handle.add(0xB8).readU8();
+    if (!skel.isNull()) {
+        st.rgba = [f32(skel.add(0x60)), f32(skel.add(0x64)), f32(skel.add(0x68)), f32(skel.add(0x6C))];
+        st.scale = [f32(skel.add(0x74)), f32(skel.add(0x78))];
+        st.xy = [f32(skel.add(0x7C)), f32(skel.add(0x80))];
+    }
+    const go = w.ska.method<Il2Cpp.Object>("get_gameObject").invoke();
+    st.active = go.method<boolean>("get_activeInHierarchy").invoke();
+    st.enabledSka = w.ska.method<boolean>("get_enabled").invoke();
+    const mr = new Il2Cpp.Object(w.ska.handle.add(0xA8).readPointer());
+    if (mr.handle.isNull() || !alive(mr)) { st.renderer = "none"; return st; }
+    st.rendererEnabled = mr.method<boolean>("get_enabled").invoke();
+    const mats = mr.method<Il2Cpp.Array<Il2Cpp.Object>>("get_sharedMaterials").invoke();
+    st.materials = [] as string[];
+    for (let i = 0; i < mats.length; i++) {
+        const m = mats.get(i);
+        if (!alive(m)) { (st.materials as string[]).push("dead"); continue; }
+        const tex = m.method<Il2Cpp.Object>("get_mainTexture").invoke();
+        (st.materials as string[]).push(`${m.method<Il2Cpp.String>("get_name").invoke()?.content}|${m.method<Il2Cpp.Object>("get_shader").invoke().method<Il2Cpp.String>("get_name").invoke()?.content}|tex:${alive(tex) ? tex.method<Il2Cpp.String>("get_name").invoke()?.content : "dead"}|q${m.method<number>("get_renderQueue").invoke()}`);
+    }
+    const b = mr.method<Il2Cpp.ValueType>("get_bounds").invoke();
+    const ext = b.field<Il2Cpp.ValueType>("m_Extents").value;
+    const ctr = b.field<Il2Cpp.ValueType>("m_Center").value;
+    const v = (x: Il2Cpp.ValueType) => ["x", "y", "z"].map(k => Math.round(x.field<number>(k).value * 1000) / 1000);
+    st.extents = v(ext);
+    st.center = v(ctr);
+    st.sortingOrder = mr.method<number>("get_sortingOrder").invoke();
+    st.layer = go.method<number>("get_layer").invoke();
+    return st;
+}
+let checkInstalled = false;
+function watchCharacter(ska: Il2Cpp.Object, asset: Il2Cpp.Object, name: string): void {
+    watched.push({ ska, asset, name, at: Date.now(), serial: battleSerial() });
+    if (checkInstalled) return;
+    checkInstalled = true;
+    onFrame("spine-skin-check", () => {
+        if (watched.length === 0) return;
+        const now = Date.now();
+        for (let i = watched.length - 1; i >= 0; i--) {
+            if (now - watched[i].at < 3000) continue;
+            const w = watched.splice(i, 1)[0];
+            try { log({ t: "skin-character-state", ...characterState(w) }); }
+            catch (e) { log({ t: "skin-character-state-error", object: w.name, error: `${e}` }); }
+        }
+    });
+}
+
 function tryCharacter(sac: Il2Cpp.Object, name: string, where: string): boolean {
     const base = CHARACTER_TARGETS[name];
     if (!base) {
@@ -155,6 +237,7 @@ function tryCharacter(sac: Il2Cpp.Object, name: string, where: string): boolean 
     if (!asset) return true;
     swapAsset(sac, ska, asset, false);
     log({ t: "skin-character", object: name, base, where });
+    watchCharacter(ska, asset, name);
     return true;
 }
 

@@ -125,3 +125,4 @@ PC 모드 info.txt의 `delay`(예 −0.575)는 PC 스트리밍 BGM 경로에 맞
 | offset을 seek 전에 쓰기 | 원본이 덮어씀 → PC와 같은 이탈 후 |
 | PC delay를 그대로 | 음악 0.57초 늦음 → `android delay`(기본 0) |
 | `AudioSettings.get_outputSampleRate` | 스트리핑돼 없음 → 48 kHz 가정(로그용) |
+| 스킨 에셋을 만든 그대로 다음 판에도 재사용 | 메뉴를 거치면 원본 머티리얼의 셰이더(배틀 에셋 번들)가 내려가 스킨 머티리얼이 `Hidden/InternalErrorShader`가 됨 → 캐릭터 안 보임. 재사용할 때 이번 판 원본 머티리얼의 셰이더·키워드·renderQueue로 맞춤(`spine/build.ts` `syncShader`) |

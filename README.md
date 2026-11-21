@@ -16,11 +16,11 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 - **BMS → 노트 주입** — PC 모드 BMS 파서·WAV 규칙 완전 호환. 일반 노트, 롱노트(홀드), 샌드백(연타), 동시치기, 고스트, 하트, 음표, dt(선행 표시 시간) 완벽 지원.
 - **오토 플레이 (AutoPlay)** — 수면 린 연출과 함께 전 구간 완벽 자동 연주 지원.
 - **강제 퍼펙트 & 올퍼펙트 연출 (All-Perfect)** — 모든 타격 판정을 PERFECT로 승격시키며, 클리어 승리 화면에서 "ALL PERFECT !" 황금 배너 연출 제공.
-- **BGA 배경 비디오 재생** — Unity 모듈 스트리핑을 우회하는 Android 네이티브 하드웨어 가속 VideoView 오버레이로 곡 폴더 내 `.mp4` 자동 재생.
+- **BGA 배경 비디오 재생 (엔진 교체 APK 필요)** — 게임 빌드에서 잘려 나간 Unity 비디오 모듈을, 같은 버전(2019.4.41f1)의 자르지 않은 Unity 런타임 `libunity.so`로 바꾼 APK에서 되살려 곡 폴더 `.mp4`를 노트 뒤 배경에 깝니다(PC와 같은 모양, 피버 중에도 유지, BGM과 평균 8~9 ms). 이 저장소의 설치 스크립트·릴리스 mod.js만으로는 엔진이 바뀌지 않아 BGA는 꺼진 채로 동작합니다. 원리: [docs/paper_video_module_transplant.md](docs/paper_video_module_transplant.md).
 - **피버 충전 제어 (Fever)** — `피버충전금지` 옵션으로 피버 발동 차단 가능.
 - **본곡 BGM & 고정밀 싱크** — 곡 폴더의 `music.ogg` 재생. 실측 음악 − 게임 시계 **+0.008초** 싱크.
 - **보스 스왑 & 씬 전환** — BMS 첫 보스 자동 선택 및 중간 보스 스왑(`swap:<보스>:<씬>`), 씬 변경 시 누락되는 **판정 과녁 고리(HitPoints)** 자동 복원.
-- **정확도 & 진행바 동기화** — 커스텀 곡 실제 노트 수 기준 정확도 산출, 곡 길이 기준 실시간 진행바 동기화.
+- **정확도 & 진행바 동기화** — 커스텀 곡 실제 노트 수 기준 정확도 산출, 게임 시계 ÷ 곡 길이로 매 프레임 진행바를 그리고 곡이 끝나면 끝까지 채움.
 - **커스텀 곡 최고 기록** — 곡·난이도별 최고 점수·등급·콤보·정확도·클리어 수를 `files/record/`에 따로 저장해 준비 화면과 승리 화면에 표시합니다(게임 세이브는 건드리지 않음, 자동 연주는 기록하지 않음).
 - **크리스마스 배경·보스** — 곡 `hwa info.txt`에 `크리스마스 배경 = 활성화`를 쓰면 5번 씬이 날짜와 상관없이 크리스마스 판(`scene_05_christmas`)과 크리스마스 보스로 바뀝니다. 공식 곡까지 바꾸려면 설정의 `강제크리스마스`.
 - **체력바 글자** — 커스텀 곡 배틀에서는 체력바의 `250/250` 자리에 `made in 화영왕`이 표시됩니다(공식 곡은 그대로).
@@ -242,7 +242,10 @@ mod/                 TypeScript 모드 소스 (npm run build → dist/mod.js)
   src/config.ts      전역 설정 파일(config.txt) 관리 및 핫리로드
   src/autoplay.ts    오토플레이 로직
   src/allPerfect.ts  올퍼펙트 판정 승격 및 황금 배너 연출
-  src/bga.ts         네이티브 VideoView 기반 BGA 엔진
+  src/videoBga.ts    Unity VideoPlayer BGA (엔진 교체 APK에서만, 노트 뒤 배경)
+  src/engineSwap.ts  엔진 교체 APK의 빈 C# 콜백 건너뛰기 가드
+  src/bgaProbe.ts    BGA 가능성 진단 로그 (읽기만)
+  src/bga.ts         MediaPlayer 오버레이 BGA (꺼 둠)
   src/fever.ts       피버 충전 제어
   src/battle/        보스 스왑(boss), 씬·타이머(scene), offset·노트 싱크(sync), 정확도(accuracy)
   src/ghost.ts       고스트 노트 알파 보정
@@ -259,6 +262,7 @@ install/             PC용 원클릭 자동 설치 스크립트
 gadget/              Frida Gadget 설정 (Script 모드)
 docs/                상세 분석 및 문서
   modder_guide_frida_gadget.md  왜 Frida Gadget이 안드로이드 IL2CPP 모딩의 핵심인가? (모더 가이드)
+  paper_video_module_transplant.md  스트리핑된 비디오 모듈 이식 (엔진 교체 + C# 래퍼 없는 VideoPlayer)
   ARCHITECTURE.md    내부 후킹 RVA 및 메모리 레이아웃
   BUILD_CLONE.md     수동 복제본 빌드 절차
   termux_install.md  Termux를 활용한 폰 단독 무인 설치 분석

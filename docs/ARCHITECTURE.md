@@ -42,7 +42,7 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `battle/` (`boss`·`scene`·`sync`·`accuracy`) | `BossPatch.cs`, `GameMusicScene*Patch.cs`, `SceneFlowPatch.cs`, `NoteAnimationSyncPatch.cs`, `APModPatch.Accuracy.cs`, `OffsetHookPatches` | 배틀 보조 |
 | `ghost.ts` | 고스트 노트 보이기 | Spine 타임라인 알파 |
 | `hitpoints.ts` | `ExperimentHitPointInstaller.cs` | 씬을 바꾼 뒤 빠지는 판정 과녁 고리 복구 |
-| `progress.ts` | `ProgressBarPatch.cs`, `HwaSyncManager` | 진행바 = 게임 시계 / 곡 길이 |
+| `progress.ts` | `ProgressBarPatch.cs`, `HwaSyncManager` | 진행바 = 게임 시계 / 커스텀 OGG 길이, `FixedOffset`부터 매 프레임, `StageBattleComponent.End`에서 100% |
 | `hpText.ts` | `HpMod/ChangeHealthValuePatch.cs`, `HywTextStyler.cs` | 커스텀 곡 체력바 글자 "made in 화영왕" |
 | `safety.ts` | (Android 전용) | 서버 업로드 차단 |
 | `spine/` (`index`·`build`·`files`·`actions`) | `Spine/CustomSkinInjector.cs`, `NoteSkinInjector.cs`, `NoteSkinRules.cs` | 커스텀 Spine 스킨 |
@@ -51,7 +51,10 @@ PC 모드 [muse-dash-test](https://github.com/magjangin/muse-dash-test)(MelonLoa
 | `allPerfect.ts` | `APModPatch.cs`, `ForcePerfectPatch.cs` | 강제 퍼펙트, 승리 화면 "ALL PERFECT !" 배너 |
 | `fever.ts` | `ChangeFeverValuePatch.cs` | 피버 충전 막기 |
 | `christmas.ts` | `Patches/Scene/ChristmasFestivalPatch.cs` | 크리스마스 배경·보스 (곡 info.txt 또는 config) |
-| `bga.ts` | `HwaBattleMediaController.cs` | 곡 폴더 mp4를 Android MediaPlayer + TextureView로 재생 (Unity VideoModule이 스트리핑됨) |
+| `bga.ts` | `HwaBattleMediaController.cs` | Android MediaPlayer + SurfaceView 오버레이 BGA. 영상이 노트 위를 덮어 **꺼 둠**(`BGA_PLAYBACK = false`) |
+| `videoBga.ts` | `HwaBattleMediaController.Video.cs`, `HwaSyncManager` | 엔진 교체 APK에서만: 엔진 함수(`FindTypeByName`·`AddComponentUnchecked`)로 네이티브 VideoPlayer를 만들고 가짜 래퍼로 icall 호출, RenderTexture를 Camera_2D 캔버스(sortingOrder −100)에 띄움, bgm.time 싱크, 피버 배경(`FeverEffectManager.m_Background`) 끔 |
+| `engineSwap.ts` | (Android 전용) | 자르지 않은 `libunity.so`일 때 `scripting_method_invoke`에 CModule NULL 메서드 가드(없는 C# 콜백 건너뛰기) |
+| `bgaProbe.ts` | (Android 전용) | 배틀 진입 때 그래픽 API·EGL 알파·카메라·배경을 읽어 `bga-probe-*` 로그 |
 | `config.ts` | `InputOverlay.Config.cs` | `config.txt` 전역 설정, 1초마다 다시 읽기 |
 | `cacheRestore.ts` | (Android 전용) | 아카이브의 patch OBB(tar)를 `files/`에 풀어 DLC 에셋 캐시 복원 |
 | `index.ts` | — | 진입점: 캐시 복원·곡 가져오기(Unity 전) → `libil2cpp.so` 폴링 → `Il2Cpp.perform(..., "free")`에서 모듈 설치 |
@@ -126,3 +129,9 @@ PC 모드 info.txt의 `delay`(예 −0.575)는 PC 스트리밍 BGM 경로에 맞
 | PC delay를 그대로 | 음악 0.57초 늦음 → `android delay`(기본 0) |
 | `AudioSettings.get_outputSampleRate` | 스트리핑돼 없음 → 48 kHz 가정(로그용) |
 | 스킨 에셋을 만든 그대로 다음 판에도 재사용 | 메뉴를 거치면 원본 머티리얼의 셰이더(배틀 에셋 번들)가 내려가 스킨 머티리얼이 `Hidden/InternalErrorShader`가 됨 → 캐릭터 안 보임. 재사용할 때 이번 판 원본 머티리얼의 셰이더·키워드·renderQueue로 맞춤(`spine/build.ts` `syncShader`) |
+| BGA를 MediaPlayer + `TextureView`로 | Unity 창 하드웨어 가속이 꺼져 표면이 안 생김, 한 번도 재생 안 됨 → `SurfaceView` |
+| `SurfaceView` 오버레이 + `setAlpha` | 알파가 안 먹어 영상이 화면을 덮음(레이어 알파로 고쳐도 노트 위를 덮음), 게임 스레드 binder 호출 평균 2.6 ms → 꺼 두고 VideoPlayer 이식 |
+| 자르지 않은 엔진을 그대로 실행 | 매 프레임 NavMesh C# 콜백(없는 메서드) 호출로 SIGSEGV → `scripting_method_invoke` NULL 가드 |
+| CModule(TinyCC) 전역 변수에 쓰기 | 읽기 전용 페이지라 SIGSEGV → JS `Memory.alloc` + `extern` |
+| VideoPlayer `CameraFarPlane` + `Camera_2D` | 스프라이트가 깊이를 안 써서 영상이 노트·UI를 덮음 → RenderTexture + 캔버스(sortingOrder −100) |
+| 영상 전용 카메라(depth −2)에 먼/가까운 평면 | 영상 프레임은 도는데 화면에 안 그려짐 → RenderTexture + 캔버스 |

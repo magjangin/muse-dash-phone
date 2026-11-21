@@ -35,6 +35,15 @@ export function battleDuration(): number {
     const chartEnd = activeSong ? lastChartEnd : 0;
     return Math.max(audioLength, chartEnd);
 }
+/**
+ * 진행바 분모: 커스텀 음원이 있으면 그 길이만 쓴다 (PC ProgressBarPatch.GetEffectiveDuration, 2026-11-21).
+ * 게임이 End를 재는 길이(bgm.clip.length)가 바로 이 클립이라, 채보가 더 길 때 max를 쓰면 End 때 진행바가 덜 찬다.
+ * 음원 길이를 아직 모를 때만 채보 끝으로 물러난다. (배틀 타이머 한도는 여전히 battleDuration = max를 쓴다.)
+ */
+export function progressDuration(): number {
+    if (audioLength > 1) return audioLength;
+    return activeSong ? lastChartEnd : 0;
+}
 let lastChartEnd = 0;
 
 /** 지금 고른 곡이 커스텀 곡이면 그 곡 (배틀 전 단계 훅용). */

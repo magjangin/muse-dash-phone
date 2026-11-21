@@ -16,6 +16,9 @@ import { installHpText } from "./hpText.js";
 import { installAutoPlay } from "./autoplay.js";
 import { installAllPerfect } from "./allPerfect.js";
 import { installBga } from "./bga.js";
+import { installBgaProbe } from "./bgaProbe.js";
+import { installEngineSwap } from "./engineSwap.js";
+import { installVideoBga } from "./videoBga.js";
 import { installFever } from "./fever.js";
 import { installChristmas } from "./christmas.js";
 import { installSpineSkin } from "./spine/index.js";
@@ -55,6 +58,7 @@ function whenIl2CppLoaded(start: () => void): void {
 // 이후 IL2CPP를 부르는 코드는 전부 게임 스레드 훅 안에서 돈다(스크립트 스레드 타이머는 watchdog만, IL2CPP 안 씀).
 whenIl2CppLoaded(() => Il2Cpp.perform(() => {
     log({ t: "il2cpp-ready", base: Il2Cpp.module.base.toString() });
+    guard("engine-swap", installEngineSwap);   // 교체한 엔진이면 첫 프레임 전에 걸어야 한다
     guard("safety", installSafety);
     guard("probe", probe);
     guard("config", installConfig);
@@ -68,6 +72,8 @@ whenIl2CppLoaded(() => Il2Cpp.perform(() => {
     guard("autoplay", installAutoPlay);
     guard("all-perfect", installAllPerfect);
     guard("bga", installBga);
+    guard("bga-probe", installBgaProbe);
+    guard("video-bga", installVideoBga);   // 엔진 교체 APK에서만 동작 (VideoPlayer로 배경)
     guard("fever", installFever);
     guard("christmas", installChristmas);
     guard("spine-skin", installSpineSkin);

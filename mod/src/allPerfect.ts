@@ -2,7 +2,6 @@
 // 1. GameTouchPlay.TouchResult (0x1D4D0D4)를 가로채 타격 판정을 Prefect(4)로 보정.
 // 2. PnlVictory2dManager.ShowFullCombo (0x1C806E0) & OnShowVictory (0x1C808E0) 훅으로 클리어 시 "ALL PERFECT !" 황금 배너 표시.
 import { log } from "./log.js";
-import { stopBga } from "./bga.js";
 import { gameClass, makeColor, makeVector2 } from "./il2cpp.js";
 
 const RVA = {
@@ -177,10 +176,9 @@ export function installAllPerfect(): void {
         }
     });
 
-    // 2단계: OnShowVictory 진입 시 BGA 정지 및 AP 배너 검사
+    // 2단계: OnShowVictory 진입 시 AP 배너 검사 (BGA는 여기서 멈추지 않는다: 곡 꼬리 동안 계속, End/Exit에서 정지 — bga.ts)
     Interceptor.attach(base.add(RVA.OnShowVictory), {
         onEnter(args) {
-            stopBga();
             try {
                 if (!isAllPerfect()) return;
                 const mgr = new Il2Cpp.Object(args[0]);

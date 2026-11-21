@@ -215,6 +215,8 @@ Unity 모바일 빌드에서 `UnityEngine.VideoModule`이 스트리핑(Stripping
 - **해결책:** Frida의 Java 런타임 브리지(`Java.perform`)를 호출하여 안드로이드 네이티브 `android.media.MediaPlayer`와 `android.view.TextureView`를 동적 생성.
 - Unity 렌더 서피스 상단에 네이티브 하드웨어 가속 비디오 레이어를 오버레이하여 60fps 무손실 BGA 재생 성공.
 
+> **정정 (2026-11-21):** 이 절의 MediaPlayer + TextureView 방식은 실제로는 한 번도 재생되지 않았다. Unity 창은 하드웨어 가속이 꺼져 있어 TextureView 표면이 생기지 않고, 코드가 Frida 17에서 사라진 전역 `Java`를 썼기 때문이다. 고친 뒤에도 영상이 게임 위를 덮었다. 지금은 같은 버전의 자르지 않은 Unity 엔진으로 바꾸고 VideoPlayer를 C# 래퍼 없이 구동해 영상을 배경에 깐다. 자세한 내용은 [스트리핑된 Unity 비디오 모듈의 안드로이드 이식](paper_video_module_transplant.md).
+
 ### 5.3 올퍼펙트(All-Perfect) 판정 연출 및 오토플레이
 - `GameTouchPlay.TouchResult` 가로채기를 통해 히트 판정(Miss=1, Cool=2, Great=3)을 Perfect(4)로 실시간 승격.
 - 승리 화면(`PnlVictory2dManager.ShowFullCombo`) 진입 시 동적 텍스트 메시 객체를 생성하여 커스텀 골드 "ALL PERFECT !" 배너 렌더링.
